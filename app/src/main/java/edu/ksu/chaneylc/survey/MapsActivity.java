@@ -3,6 +3,7 @@ package edu.ksu.chaneylc.survey;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
@@ -14,7 +15,9 @@ import android.support.design.widget.NavigationView;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.content.ContextCompat;
+import android.support.v7.app.AlertDialog;
 import android.text.Editable;
+import android.text.InputType;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.util.SparseArray;
@@ -118,48 +121,6 @@ public class MapsActivity extends FragmentActivity
                     }
                 });
 
-        ((EditText) findViewById(R.id.inputText)).addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-
-                final Button writeButton = (Button) findViewById(R.id.writeButton);
-                if (s != null && s.length() > 0) {
-                    final int size = _idArray.size();
-                    for (int i = 0; i < size; i = i + 1) {
-                        if (s.equals(_idArray.get(_idArray.keyAt(i)))) {
-                            writeButton.setEnabled(false);
-                            break;
-                        }
-                    }
-                    writeButton.setEnabled(true);
-                } else writeButton.setEnabled(false);
-            }
-        });
-
-        ((Button) findViewById(R.id.writeButton)).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                //FIFO naming
-                final EditText et = (EditText) findViewById(R.id.inputText);
-                _idArray.append(_namedCount++, et.getText().toString());
-
-                if (_namedCount < _locArray.size())
-                    et.setHint(_locArray.get(_locArray.keyAt(_namedCount)).toString());
-                else et.setHint(null);
-                et.setText("");
-            }
-        });
-
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -258,7 +219,7 @@ public class MapsActivity extends FragmentActivity
             if (PackageManager.PERMISSION_GRANTED !=
                     ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION))
                 startLocUpdates();
-                locManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, this);
+            locManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, this);
         }
     }
 
@@ -293,14 +254,26 @@ public class MapsActivity extends FragmentActivity
     @Override
     public void onMapClick(LatLng latLng) {
 
-        _locArray.append(_locArray.size(), latLng);
-        _idArray.append(_idArray.size(), String.valueOf(latLng.hashCode()));
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Name this location.");
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        builder.setView(input);
 
-        final EditText et = (EditText) findViewById(R.id.inputText);
-        if (et.getHint() == null || et.getHint().toString().isEmpty()) {
-            et.setHint(latLng.toString());
-        }
-        drawUI();
+        final LatLng innerLatLng = latLng;
+        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                String value = input.getText().toString();
+                if (value != null && !value.isEmpty()) {
+                    _locArray.append(_locArray.size(), innerLatLng);
+                    _idArray.append(_idArray.size(), value);
+                    drawUI();
+                }
+            }
+        });
+
+        builder.show();
     }
 
     private void drawCross(LatLng latLng) {

@@ -7,63 +7,33 @@
 
 
     <fragment
-        android:layout_width="404dp"
-        android:layout_height="439dp"
-        android:name="com.google.android.gms.maps.SupportMapFragment"
         android:id="@+id/map"
-        tools:context="edu.ksu.chaneylc.seedmapper.edu.ksu.chaneylc.survey.MapsActivity"
+        android:name="com.google.android.gms.maps.SupportMapFragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         app:cameraZoom="17"
-        app:mapType="satellite"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
-        android:layout_marginBottom="0dp"
-        tools:layout_editor_absoluteY="72dp"
-        tools:layout_editor_absoluteX="-4dp" />
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0"
+        app:mapType="satellite"
+        tools:context="edu.ksu.chaneylc.seedmapper.edu.ksu.chaneylc.survey.MapsActivity" />
 
     <Button
         android:id="@+id/saveButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="8dp"
-        android:layout_marginLeft="8dp"
-        android:layout_marginRight="8dp"
         android:text="save"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintBottom_toBottomOf="@+id/map"
+        android:layout_marginRight="8dp"
         app:layout_constraintRight_toRightOf="parent"
+        android:layout_marginLeft="8dp"
+        app:layout_constraintLeft_toLeftOf="parent"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp" />
-
-    <Button
-        android:id="@+id/writeButton"
-        android:layout_width="102dp"
-        android:layout_height="63dp"
-        android:layout_marginBottom="8dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginRight="0dp"
-        android:layout_marginStart="8dp"
-        android:text="Write ID"
-        app:layout_constraintBottom_toTopOf="@+id/map"
-        app:layout_constraintRight_toRightOf="parent"
-        tools:layout_editor_absoluteY="1dp" />
-
-    <EditText
-        android:id="@+id/inputText"
-        android:layout_width="271dp"
-        android:layout_height="70dp"
-        android:layout_marginBottom="8dp"
-        android:layout_marginLeft="8dp"
-        android:layout_marginRight="0dp"
-        android:layout_marginTop="8dp"
-        android:ems="10"
-        android:inputType="textPersonName"
-        app:layout_constraintBottom_toTopOf="@+id/map"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toLeftOf="@+id/writeButton"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:layout_editor_absoluteX="-22dp" />
 
 
 </android.support.constraint.ConstraintLayout>
