@@ -4,8 +4,8 @@ android {
     compileSdkVersion 25
     buildToolsVersion "25.0.2"
     defaultConfig {
-        applicationId "edu.ksu.chaneylc.survey"
-        minSdkVersion 15
+        applicationId "edu.ksu.wheatgenetics.survey"
+        minSdkVersion 16
         targetSdkVersion 25
         versionCode 1
         versionName "1.0"

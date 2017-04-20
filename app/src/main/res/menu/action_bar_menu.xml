@@ -2,8 +2,8 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
-        android:id="@+id/action_save"
-        android:icon="@mipmap/ic_action_save"
-        android:title="@string/action_save"
+        android:id="@+id/action_settings"
+        android:icon="@drawable/cast_expanded_controller_seekbar_thumb"
+        android:title="@string/action_settings"
         app:showAsAction="ifRoom"/>
 </menu>

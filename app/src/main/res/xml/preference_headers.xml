@@ -1,0 +1,9 @@
+<preference-headers
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <header android:fragment="edu.ksu.wheatgenetics.survey.SettingsActivity$PrefsLocationListenerFragment"
+        android:icon="@drawable/powered_by_google_dark"
+        android:title="Location Listener Parameters"
+        android:summary="Adjust parameters for when your location is updated." />
+
+</preference-headers>
