@@ -6,6 +6,8 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationListener;
@@ -55,6 +57,8 @@ public class MapsActivity extends AppCompatActivity
     private LatLng _prevLocation;
     private double _prevAccuracy;
 
+    private LocEntryDbHelper mDbHelper;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -86,6 +90,29 @@ public class MapsActivity extends AppCompatActivity
         _prevAccuracy = 10.0;
 
         requestLocationUpdates();
+    }
+
+    private synchronized void loadDatabase() {
+
+        final SQLiteDatabase db = mDbHelper.getWritableDatabase();
+        final Cursor cursor = db.rawQuery("SELECT latitude, longitude, sample_id FROM " + LocEntryContract.LocEntry.TABLE_NAME, null);
+        if (cursor.moveToFirst()) {
+            do {
+                final String id = cursor.getString(
+                        cursor.getColumnIndexOrThrow(LocEntryContract.LocEntry.COLUMN_NAME_SAMPLE_ID)
+                );
+                final String lat = cursor.getString(
+                        cursor.getColumnIndexOrThrow(LocEntryContract.LocEntry.COLUMN_NAME_LATITUDE)
+                );
+                final String lng = cursor.getString(
+                        cursor.getColumnIndexOrThrow(LocEntryContract.LocEntry.COLUMN_NAME_LONGITUDE)
+                );
+                final LatLng latlng = new LatLng(Double.valueOf(lat), Double.valueOf(lng));
+                _locArray.append(_locArray.size(), latlng);
+                _idArray.append(_idArray.size(), id);
+
+            } while(cursor.moveToNext());
+        }
     }
 
     @Override
@@ -151,7 +178,6 @@ public class MapsActivity extends AppCompatActivity
                         if (!value.isEmpty()) {
                             _locArray.append(_locArray.size(), innerLatLng);
                             _idArray.append(_idArray.size(), value);
-                            new AsyncUpdateExtFile().execute(new Pair<LatLng, String>(innerLatLng, value));
                             drawUI();
                         }
                     }
@@ -160,6 +186,10 @@ public class MapsActivity extends AppCompatActivity
                 builder.show();
             }
         });
+
+        mDbHelper = new LocEntryDbHelper(this);
+
+        loadDatabase();
 
         drawUI();
         setupView();
@@ -256,37 +286,6 @@ public class MapsActivity extends AppCompatActivity
                     .fillColor(Color.argb(126, 0, 255, 0))
                     .radius(_prevAccuracy));
 
-        }
-    }
-
-    private class AsyncUpdateExtFile extends AsyncTask<Pair<LatLng, String>, Void, String[]> {
-
-        @Override @SafeVarargs
-        final protected String[] doInBackground(Pair<LatLng, String>... params) {
-
-            if (isExternalStorageWritable()) {
-                if (params.length > 0) {
-                    final Pair<LatLng, String> newPair = params[0];
-                    final String filename = "coordinates.csv";
-                    try {
-                        final File path = getExternalFilesDir(null);
-                        final File f = new File(path, filename);
-                        final FileOutputStream output = new FileOutputStream(f, true);
-                        output.write(newPair.second.getBytes());
-                        output.write(",".getBytes());
-                        output.write(String.valueOf(newPair.first.latitude).getBytes());
-                        output.write(",".getBytes());
-                        output.write(String.valueOf(newPair.first.longitude).getBytes());
-                        output.write("\n".getBytes());
-                        output.close();
-                    } catch (FileNotFoundException e) {
-                        e.printStackTrace();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-            return null;
         }
     }
 

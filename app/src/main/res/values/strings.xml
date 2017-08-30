@@ -3,6 +3,12 @@
     <string name="title_activity_maps">Survey</string>
     <string name="title_activity_main">MapsActivity</string>
 
+    <string name="drawer_open">Open</string>
+    <string name="drawer_close">Close</string>
+
+    <string name="default_person">Default</string>
+    <string name="default_experiment">DefaultExperiment</string>
+
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
 

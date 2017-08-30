@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <EditTextPreference
+        android:icon="@drawable/common_full_open_on_phone"
+        android:key="edu.ksu.wheatgenetics.survey.PERSON"
+        android:defaultValue="@string/default_person"
+        android:summary="Name of current user saved in DB."
+        android:title="Username" />
+    <EditTextPreference
+        android:icon="@drawable/common_full_open_on_phone"
+        android:key="edu.ksu.wheatgenetics.survey.EXPERIMENT_ID"
+        android:defaultValue="@string/default_experiment"
+        android:summary="Name of current experiment saved in DB"
+        android:title="Experiment identifier"/>
+</PreferenceScreen>
