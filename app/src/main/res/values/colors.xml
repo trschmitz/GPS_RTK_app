@@ -5,4 +5,5 @@
     <color name="colorAccent">#FF4081</color>
     <color name="colorTrans">#99000000</color>
     <color name="colorOverlay">#ffffff</color>
+    <color name="colorMain">#CE93D8</color>
 </resources>

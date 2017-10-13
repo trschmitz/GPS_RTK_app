@@ -1,9 +1,13 @@
 package edu.ksu.wheatgenetics.survey;
 
 import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
@@ -13,26 +17,53 @@ import android.database.sqlite.SQLiteDatabase;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.os.ParcelFileDescriptor;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.design.widget.NavigationView;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.LocalBroadcastManager;
+import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.text.InputType;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.AbsListView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
+
+import static edu.ksu.wheatgenetics.survey.SurveyConstants.BROADCAST_BT_CONNECTION;
+import static edu.ksu.wheatgenetics.survey.SurveyConstants.BROADCAST_BT_OUTPUT;
+import static edu.ksu.wheatgenetics.survey.SurveyConstants.BT_CONNECTION;
+import static edu.ksu.wheatgenetics.survey.SurveyConstants.BT_OUTPUT;
+import static edu.ksu.wheatgenetics.survey.SurveyConstants.MESSAGE_READ;
+import static edu.ksu.wheatgenetics.survey.SurveyConstants.PERMISSION_REQUEST;
 
 /**
  * Created by chaneylc on 8/30/2017.
@@ -52,6 +83,15 @@ public class MainActivity extends AppCompatActivity {
     private NavigationView nvDrawer;
     private ActionBarDrawerToggle mDrawerToggle;
 
+    //bluetooth
+    private BluetoothAdapter mBluetoothAdapter;
+    private BluetoothDevice mBluetoothDevice;
+    private LocalBroadcastManager mLocalBroadcastManager;
+    private ConnectedThread mConnectedThread;
+
+    //nmea parser
+    private NmeaParser mNmeaParser;
+
     @Override
     protected void onPostCreate(Bundle savedInstanceBundle) {
         super.onPostCreate(savedInstanceBundle);
@@ -65,12 +105,84 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    public boolean onCreateOptionsMenu(Menu m) {
+
+        final MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.activity_main_toolbar, m);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+
+        if (mDrawerToggle.onOptionsItemSelected(item)) {
+            return true;
+        }
+
+        switch (item.getItemId()) {
+            case android.R.id.home:
+                mDrawerLayout.openDrawer(GravityCompat.START);
+                return true;
+            case R.id.action_connect_bluetooth:
+                mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+                findPairedBTDevice();
+                return true;
+            case R.id.action_map_locations:
+                final Intent mapsActivity = new Intent(this, MapsActivity.class);
+                startActivity(mapsActivity);
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
+    private void findPairedBTDevice() {
+
+        if (mBluetoothAdapter != null) {
+
+            Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
+            if (!pairedDevices.isEmpty()) {
+                final Map<String, BluetoothDevice> bluetoothMap = new HashMap<>();
+                final ArrayAdapter<String> bluetoothDevicesAdapter =
+                        new ArrayAdapter<String>(MainActivity.this, R.layout.row);
+                for (BluetoothDevice bd : pairedDevices) {
+                    bluetoothMap.put(bd.getName(), bd);
+                    bluetoothDevicesAdapter.add(bd.getName());
+                }
+
+                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                builder.setTitle("Choose your paired bluetooth device.");
+                final ListView devices = new ListView(MainActivity.this);
+                devices.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
+                devices.setSelector(R.drawable.list_selector_focus);
+                devices.setAdapter(bluetoothDevicesAdapter);
+                builder.setView(devices);
+                builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        String value = bluetoothDevicesAdapter.getItem(devices.getCheckedItemPosition());
+                        if (value != null) {
+                            mBluetoothDevice = bluetoothMap.get(value);
+                            new ConnectThread(mBluetoothDevice).start();
+                        }
+                    }
+                });
+
+                builder.show();
+            }
+        }
+
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        ActivityCompat.requestPermissions(this, new String[] {Manifest.permission.ACCESS_FINE_LOCATION}, 100);
+        ActivityCompat.requestPermissions(this, SurveyConstants.permissions, PERMISSION_REQUEST);
+
+        mNmeaParser = new NmeaParser();
 
         mLastLatitude = mLastLongitude = null;
 
@@ -87,6 +199,8 @@ public class MainActivity extends AppCompatActivity {
                         && mLastLatitude != null
                         && mLastLongitude != null) {
                     submitToDb();
+                } else {
+                    Toast.makeText(MainActivity.this, "Entry must have a name and location.", Toast.LENGTH_SHORT).show();
                 }
             }
         });
@@ -106,51 +220,16 @@ public class MainActivity extends AppCompatActivity {
         setupDrawerContent(nvDrawer);
         setupDrawer();
 
-        final Intent geoNavServiceIntent = new Intent(this, GeoNavService.class);
-        startService(geoNavServiceIntent);
+       // final Intent geoNavServiceIntent = new Intent(this, GeoNavService.class);
+       // startService(geoNavServiceIntent);
 
-        /*final Intent sharedFilePicker = new Intent(Intent.ACTION_PICK);
-        sharedFilePicker.setType("text/*");
-        startActivityForResult(sharedFilePicker, 0);*/
-
-        /*
-        //first method
-        //create bundle of flattened lat/lng values
-        // s.a LatLng1= -103.4, -96.5; LatLng2= -105.4, -96.3 is defined as
-        //new double[] {-103.4, -96.5, -105.4, -96.3}
-        final Intent fieldMappingIntent = new Intent(this, GeoNavService.class);
-        //sending a flattened array of coordinates
-        fieldMappingIntent.putExtra("array", new double[] {1.0, 2.0, 3.0, 4.0});
-        //updating accuracy in meters
-        fieldMappingIntent.putExtra("Accuracy", Float.MAX_VALUE);
-        //updating time in ms
-        fieldMappingIntent.putExtra("Time", Long.MIN_VALUE);
-        //updating distance in meters
-        fieldMappingIntent.putExtra("Distance", Float.MIN_VALUE);
-        //second method
-        //create map plot id, and value is lat/lng coordinates
-        //following map contains the 8 cardinal boundary points for East Stadium Manhattan, KS
-        //Q1 - Q4 are approximate cartesian quadrant midpoints
-        final HashMap<String, double[]> idMap = new HashMap<>();
-        idMap.put("N", new double[] {39.187959, -96.584348});
-        idMap.put("NW", new double[] {39.187988, -96.584680});
-        idMap.put("W", new double[] {39.187500, -96.584705});
-        idMap.put("SW", new double[] {39.187006, -96.584697});
-        idMap.put("S", new double[] {39.187006, -96.584297});
-        idMap.put("SE", new double[] {39.187024, -96.583954});
-        idMap.put("E", new double[] {39.187492, -96.583929});
-        idMap.put("NE", new double[] {39.187968, -96.583946});
-        idMap.put("Q1", new double[] {39.187791, -96.584093});
-        idMap.put("Q2", new double[] {39.187706, -96.584554});
-        idMap.put("Q3", new double[] {39.187268, -96.584509});
-        idMap.put("Q4", new double[] {39.187268, -96.584093});
-        fieldMappingIntent.putExtra("map", idMap);
-        startService(fieldMappingIntent); */
+        mLocalBroadcastManager = LocalBroadcastManager.getInstance(this);
         final IntentFilter filter = new IntentFilter();
+        filter.addAction(BROADCAST_BT_OUTPUT);
         filter.addAction(GeoNavConstants.BROADCAST_LOCATION);
         filter.addAction(GeoNavConstants.BROADCAST_ACCURACY);
         filter.addAction(GeoNavConstants.BROADCAST_PLOT_ID);
-        LocalBroadcastManager.getInstance(this).registerReceiver(
+        mLocalBroadcastManager.registerReceiver(
                 new ResponseReceiver(),
                 filter
         );
@@ -260,6 +339,16 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
+            if (intent.hasExtra(BT_OUTPUT)) {
+
+                final String raw = intent.getStringExtra(BT_OUTPUT);
+                mNmeaParser.feed(raw);
+                mLastLongitude = mNmeaParser.getLongitude();
+                mLastLatitude = mNmeaParser.getLatitude();
+                mLocTextView.setText(mNmeaParser.toString());
+                // mTextView.setText(raw);
+            }
+
             /*if (intent.hasExtra(GeoNavConstants.PLOT_ID)) {
                 ((TextView) findViewById(R.id.idText)).setText(
                         (String) intent.getExtras()
@@ -273,6 +362,162 @@ public class MainActivity extends AppCompatActivity {
                                 .get(GeoNavConstants.ACCURACY))
                 );
             }*/
+        }
+    }
+
+    private class ConnectThread extends Thread {
+
+        private final BluetoothSocket mmSocket;
+
+        ConnectThread(BluetoothDevice device) {
+            // Use a temporary object that is later assigned to mmSocket
+            // because mmSocket is final.
+            BluetoothSocket tmp = null;
+            mBluetoothDevice = device;
+
+            try {
+                tmp = device.createRfcommSocketToServiceRecord(device.getUuids()[0].getUuid());
+            } catch (IOException e) {
+                Log.e("CONNECT THREAD", "Socket's create() method failed", e);
+            }
+
+            mmSocket = tmp;
+        }
+
+        public void run() {
+
+            try {
+                // Connect to the remote device through the socket. This call blocks
+                // until it succeeds or throws an exception.
+                mmSocket.connect();
+            } catch (IOException connectException) {
+                // Unable to connect; close the socket and return.
+                try {
+                    mmSocket.close();
+                } catch (IOException closeException) {
+                    Log.e("CONNECT THREAD: RUN", "Could not close the client socket", closeException);
+                }
+                return;
+            }
+
+            // The connection attempt succeeded. Perform work associated with
+            // the connection in a separate thread.
+            if (mConnectedThread != null && (mConnectedThread.isAlive()
+                    || mConnectedThread.isDaemon() || mConnectedThread.isInterrupted()))
+                mConnectedThread.cancel();
+            mConnectedThread = new ConnectedThread(mmSocket);
+            mConnectedThread.start();
+
+        }
+
+        // Closes the client socket and causes the thread to finish.
+        public void cancel() {
+            try {
+                mmSocket.close();
+            } catch (IOException e) {
+                Log.e("CONNECT THREAD : CANCEL", "Could not close the client socket", e);
+            }
+        }
+    }
+
+    private Handler mHandler = new Handler() {
+
+        @Override
+        public void handleMessage(Message input) {
+
+            final String raw = (String) input.obj;
+            switch (input.what) {
+                case SurveyConstants.MESSAGE_READ:
+
+                    //progress is complete, send the final message
+                    mLocalBroadcastManager.sendBroadcast(
+                            new Intent(BROADCAST_BT_OUTPUT)
+                                    .putExtra(BT_OUTPUT, raw));
+
+                    break;
+            }
+        }
+    };
+
+    /* sends data to the Service handler */
+    private class ConnectedThread extends Thread {
+
+        private final BluetoothSocket mmSocket;
+        private final InputStream mmInStream;
+        private final OutputStream mmOutStream;
+        private byte[] mmBuffer; // mmBuffer store for the stream
+
+        ConnectedThread(BluetoothSocket socket) {
+
+            mmSocket = socket;
+            InputStream tmpIn = null;
+            OutputStream tmpOut = null;
+
+            // Get the input and output streams; using temp objects because
+            // member streams are final.
+            try {
+                tmpIn = socket.getInputStream();
+            } catch (IOException e) {
+                Log.e("CONNECTED THREAD: in", "Error occurred when creating input stream", e);
+            }
+            try {
+                tmpOut = socket.getOutputStream();
+            } catch (IOException e) {
+                Log.e("CONNECTED THREAD: out", "Error occurred when creating output stream", e);
+            }
+
+            mmInStream = tmpIn;
+            mmOutStream = tmpOut;
+
+            //broadcast that the device is connected
+            mLocalBroadcastManager.sendBroadcast(
+                    new Intent(BROADCAST_BT_CONNECTION)
+                            .putExtra(BT_CONNECTION, true)
+            );
+        }
+
+        public void run() {
+
+            mmBuffer = new byte[256];
+            int bytes = 0; // bytes returned from read()
+
+            while (true) {
+                try {
+                    //keep track of buffer index, only update when \r\n is found
+                    mmBuffer[bytes] = (byte) mmInStream.read();
+
+                    //first check if we have at least two bytes
+                    //next check if the last two bytes where newline and carriage return
+                    if (bytes > 1 && mmBuffer[bytes - 1] == '\r' && mmBuffer[bytes] == '\n') {
+                        //build string from index 0 to bytes of buffer
+                        final String msg = new String(mmBuffer, 0, bytes - 1);
+                        Message readMsg = mHandler.obtainMessage(
+                                MESSAGE_READ, bytes, -1,
+                                msg);
+                        readMsg.sendToTarget();
+                        bytes = 0;
+                    } else bytes++;
+
+                } catch (IOException e) {
+
+                    Log.d("CONNECTED THREAD: run", "Input stream was disconnected", e);
+
+                    mLocalBroadcastManager.sendBroadcast(
+                            new Intent(BROADCAST_BT_CONNECTION)
+                                    .putExtra(BT_CONNECTION, false));
+
+                    break;
+                }
+            }
+        }
+
+        // Call this method from the main activity to shut down the connection.
+        void cancel() {
+            try {
+                mmSocket.close();
+            } catch (IOException e) {
+                Log.e("CONNECTED : cancel", "Could not close the connect socket", e);
+            }
         }
     }
 }

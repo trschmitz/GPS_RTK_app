@@ -2,26 +2,26 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/maps_activity"
-        android:icon="@drawable/common_full_open_on_phone"
+        android:icon="@drawable/navbar_maps"
         android:title="Maps" />
 
     <item
         android:id="@+id/nav_settings"
-        android:icon="@drawable/common_full_open_on_phone"
+        android:icon="@drawable/navbar_settings"
         android:title="Settings" />
 
     <item
         android:id="@+id/nav_export"
-        android:icon="@drawable/common_full_open_on_phone"
+        android:icon="@drawable/navbar_export"
         android:title="Export" />
 
     <item
         android:id="@+id/nav_about"
-        android:icon="@drawable/common_full_open_on_phone"
+        android:icon="@drawable/ic_about"
         android:title="About" />
 
     <item
         android:id="@+id/nav_intro"
-        android:icon="@drawable/common_full_open_on_phone"
+        android:icon="@drawable/ic_help"
         android:title="Intro" />
 </menu>
