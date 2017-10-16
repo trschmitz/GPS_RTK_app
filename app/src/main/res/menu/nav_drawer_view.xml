@@ -11,17 +11,14 @@
         android:title="Settings" />
 
     <item
-        android:id="@+id/nav_export"
         android:icon="@drawable/navbar_export"
         android:title="Export" />
 
     <item
-        android:id="@+id/nav_about"
         android:icon="@drawable/ic_about"
         android:title="About" />
 
     <item
-        android:id="@+id/nav_intro"
         android:icon="@drawable/ic_help"
         android:title="Intro" />
 </menu>

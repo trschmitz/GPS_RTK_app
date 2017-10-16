@@ -67,9 +67,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView mLocTextView;
     private ListView mIdListView;
     private EditText mIdInputEditText;
-    private Button mSubmitLocButton;
     private DrawerLayout mDrawerLayout;
-    private NavigationView nvDrawer;
     private ActionBarDrawerToggle mDrawerToggle;
 
     //bluetooth
@@ -182,7 +180,8 @@ public class MainActivity extends AppCompatActivity {
         mIdListView = (ListView) findViewById(R.id.idListView);
         mLocTextView = (TextView) findViewById(R.id.locationTextView);
         mIdInputEditText = (EditText) findViewById(R.id.idInputEditText);
-        mSubmitLocButton = (Button) findViewById(R.id.submitInputButton);
+
+        Button mSubmitLocButton = (Button) findViewById(R.id.submitInputButton);
         mSubmitLocButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -205,9 +204,8 @@ public class MainActivity extends AppCompatActivity {
             getSupportActionBar().setHomeButtonEnabled(true);
         }
 
-        nvDrawer = (NavigationView) findViewById(R.id.nvView);
-
         // Setup drawer view
+        NavigationView nvDrawer = (NavigationView) findViewById(R.id.nvView);
         setupDrawerContent(nvDrawer);
         setupDrawer();
 
