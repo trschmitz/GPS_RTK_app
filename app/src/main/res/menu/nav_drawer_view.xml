@@ -11,6 +11,7 @@
         android:title="Settings" />
 
     <item
+        android:id="@+id/action_navbar_export"
         android:icon="@drawable/navbar_export"
         android:title="Export" />
 

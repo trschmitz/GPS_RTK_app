@@ -13,8 +13,10 @@ import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteStatement;
 import android.location.Location;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.preference.PreferenceManager;
@@ -27,6 +29,7 @@ import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.text.InputType;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -40,10 +43,16 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.sql.PreparedStatement;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -60,17 +69,25 @@ import static edu.ksu.wheatgenetics.survey.SurveyConstants.PERMISSION_REQUEST;
 
 public class MainActivity extends AppCompatActivity {
 
+    //db helper variable and prepared statement declarations
     private LocEntryDbHelper mDbHelper;
+    private PreparedStatement sqlSelectSampleId;
 
+    //db columns
     private String mLastLatitude, mLastLongitude;
+    private String mLastTimestamp;
 
+    //location to save Survey data s.a exporting lat/lng .csv
+    private File mSurveyDirectory;
+
+    //survey UI variables
     private TextView mLocTextView;
     private ListView mIdListView;
     private EditText mIdInputEditText;
     private DrawerLayout mDrawerLayout;
     private ActionBarDrawerToggle mDrawerToggle;
 
-    //bluetooth
+    //bluetooth device variables
     private BluetoothAdapter mBluetoothAdapter;
     private BluetoothDevice mBluetoothDevice;
     private LocalBroadcastManager mLocalBroadcastManager;
@@ -173,41 +190,11 @@ public class MainActivity extends AppCompatActivity {
 
         mNmeaParser = new NmeaParser();
 
-        mLastLatitude = mLastLongitude = null;
+        mLastLatitude = mLastLongitude = mLastTimestamp = null;
 
         mDbHelper = new LocEntryDbHelper(this);
 
-        mIdListView = (ListView) findViewById(R.id.idListView);
-        mLocTextView = (TextView) findViewById(R.id.locationTextView);
-        mIdInputEditText = (EditText) findViewById(R.id.idInputEditText);
-
-        Button mSubmitLocButton = (Button) findViewById(R.id.submitInputButton);
-        mSubmitLocButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (!mIdInputEditText.getText().toString().isEmpty()
-                        && mLastLatitude != null
-                        && mLastLongitude != null) {
-                    submitToDb();
-                } else {
-                    Toast.makeText(MainActivity.this, "Entry must have a name and location.", Toast.LENGTH_SHORT).show();
-                }
-            }
-        });
-
-        mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
-
-        if(getSupportActionBar() != null){
-            getSupportActionBar().setTitle(null);
-            getSupportActionBar().getThemedContext();
-            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-            getSupportActionBar().setHomeButtonEnabled(true);
-        }
-
-        // Setup drawer view
-        NavigationView nvDrawer = (NavigationView) findViewById(R.id.nvView);
-        setupDrawerContent(nvDrawer);
-        setupDrawer();
+        initializeUI();
 
         final Intent geoNavServiceIntent = new Intent(this, GeoNavService.class);
         startService(geoNavServiceIntent);
@@ -223,7 +210,48 @@ public class MainActivity extends AppCompatActivity {
                 filter
         );
 
+        if (isExternalStorageWritable())
+            mSurveyDirectory = new File(Environment.getExternalStorageDirectory().getPath() + "/Survey");
+        if (!mSurveyDirectory.isDirectory()) {
+            mSurveyDirectory.mkdirs();
+        }
+
         updateListView();
+    }
+
+    private void initializeUI() {
+
+        mIdListView = findViewById(R.id.idListView);
+        mLocTextView = findViewById(R.id.locationTextView);
+        mIdInputEditText = findViewById(R.id.idInputEditText);
+
+        Button mSubmitLocButton = findViewById(R.id.submitInputButton);
+        mSubmitLocButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!mIdInputEditText.getText().toString().isEmpty()
+                        && mLastLatitude != null
+                        && mLastLongitude != null) {
+                    submitToDb();
+                } else {
+                    Toast.makeText(MainActivity.this, "Entry must have a name and location.", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        mDrawerLayout = findViewById(R.id.drawer_layout);
+
+        if(getSupportActionBar() != null){
+            getSupportActionBar().setTitle(null);
+            getSupportActionBar().getThemedContext();
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            getSupportActionBar().setHomeButtonEnabled(true);
+        }
+
+        // Setup drawer view
+        NavigationView nvDrawer = (NavigationView) findViewById(R.id.nvView);
+        setupDrawerContent(nvDrawer);
+        setupDrawer();
     }
 
     private void setupDrawer() {
@@ -270,6 +298,9 @@ public class MainActivity extends AppCompatActivity {
                 final Intent settingsIntent = new Intent(this, SettingsActivity.class);
                 startActivityForResult(settingsIntent, SurveyConstants.SETTINGS_INTENT_REQ);
                 break;
+            case R.id.action_navbar_export:
+                askUserExportFileName();
+                break;
         }
 
         mDrawerLayout.closeDrawers();
@@ -281,17 +312,21 @@ public class MainActivity extends AppCompatActivity {
         final String userName = prefs.getString(SettingsActivity.PERSON, "Default");
         final String experimentId = prefs.getString(SettingsActivity.EXPERIMENT, "Default");
 
-        final SQLiteDatabase db = mDbHelper.getWritableDatabase();
-        final ContentValues entry = new ContentValues();
-        entry.put(LocEntryContract.LocEntry.COLUMN_NAME_SAMPLE_ID, mIdInputEditText.getText().toString());
-        entry.put(LocEntryContract.LocEntry.COLUMN_NAME_LATITUDE, mLastLatitude);
-        entry.put(LocEntryContract.LocEntry.COLUMN_NAME_LONGITUDE, mLastLongitude);
-        entry.put(LocEntryContract.LocEntry.COLUMN_NAME_PERSON, userName);
-        entry.put(LocEntryContract.LocEntry.COLUMN_NAME_EXPERIMENT_ID, experimentId);
+        if (!experimentId.isEmpty() && !userName.isEmpty() && mLastLatitude != null && mLastLongitude != null
+                && !mIdInputEditText.getText().toString().isEmpty()) {
+            final SQLiteDatabase db = mDbHelper.getWritableDatabase();
+            final ContentValues entry = new ContentValues();
+            entry.put(LocEntryContract.LocEntry.COLUMN_NAME_SAMPLE_ID, mIdInputEditText.getText().toString());
+            entry.put(LocEntryContract.LocEntry.COLUMN_NAME_LATITUDE, mLastLatitude);
+            entry.put(LocEntryContract.LocEntry.COLUMN_NAME_LONGITUDE, mLastLongitude);
+            entry.put(LocEntryContract.LocEntry.COLUMN_NAME_PERSON, userName);
+            entry.put(LocEntryContract.LocEntry.COLUMN_NAME_EXPERIMENT_ID, experimentId);
+            entry.put(LocEntryContract.LocEntry.COLUMN_NAME_TIMESTAMP, mLastTimestamp);
 
-        final long newRowId = db.insert(LocEntryContract.LocEntry.TABLE_NAME, null, entry);
+            final long newRowId = db.insert(LocEntryContract.LocEntry.TABLE_NAME, null, entry);
 
-        updateListView();
+            updateListView();
+        }
     }
 
     private synchronized void updateListView() {
@@ -299,18 +334,87 @@ public class MainActivity extends AppCompatActivity {
         final ArrayAdapter<String> newAdapter = new ArrayAdapter<String>(this, R.layout.row);
 
         final SQLiteDatabase db = mDbHelper.getReadableDatabase();
-        final Cursor cursor = db.rawQuery("SELECT sample_id FROM " + LocEntryContract.LocEntry.TABLE_NAME, null);
+        final String table = LocEntryContract.LocEntry.TABLE_NAME;
+        final String[] columnsToReturn = { "sample_id" };
+        final Cursor cursor = db.query(table, columnsToReturn, null, null, null, null, null, null);
         if (cursor.moveToFirst()) {
             do {
                 final String id = cursor.getString(
                         cursor.getColumnIndexOrThrow(LocEntryContract.LocEntry.COLUMN_NAME_SAMPLE_ID)
                 );
-                newAdapter.add(id);
+                newAdapter.add((newAdapter.getCount() + 1)
+                        + "\t\t\t\t" + id);
             } while(cursor.moveToNext());
         }
         cursor.close();
 
         mIdListView.setAdapter(newAdapter);
+    }
+
+    private boolean isExternalStorageWritable() {
+        if (Environment.MEDIA_MOUNTED.equals(
+                Environment.getExternalStorageState()
+        )) return true;
+        return false;
+    }
+
+    private synchronized void askUserExportFileName() {
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Choose name for exported file.");
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        builder.setView(input);
+
+        builder.setPositiveButton("Export", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                String value = input.getText().toString();
+                if (!value.isEmpty()) {
+                    if (isExternalStorageWritable()) {
+                        try {
+                            final File output = new File(mSurveyDirectory, value + ".csv");
+                            final FileOutputStream fstream = new FileOutputStream(output);
+                            final SQLiteDatabase db = mDbHelper.getReadableDatabase();
+                            final String table = LocEntryContract.LocEntry.TABLE_NAME;
+                            //final Cursor cursor = db.rawQuery("SElECT * FROM SURVEY", null);
+                            final Cursor cursor = db.query(table, null, null, null, null, null, null);
+                            //first write header line
+                            final String[] headers = cursor.getColumnNames();
+                            for (int i = 0; i < headers.length; i++) {
+                                if (i != 0) fstream.write(",".getBytes());
+                                fstream.write(headers[i].getBytes());
+                            }
+                            fstream.write("\n".getBytes());
+                            //populate text file with current database values
+                            if (cursor.moveToFirst()) {
+                                do {
+                                    for (int i = 0; i < headers.length; i++) {
+                                        if (i != 0) fstream.write(",".getBytes());
+                                        final String val = cursor.getString(
+                                                cursor.getColumnIndexOrThrow(headers[i])
+                                        );
+                                        if (val == null) fstream.write("null".getBytes());
+                                        else fstream.write(val.getBytes());
+                                    }
+                                    fstream.write("\n".getBytes());
+                                } while (cursor.moveToNext());
+                            }
+
+                            cursor.close();
+                            fstream.flush();
+                            fstream.close();
+
+                        } catch (IOException io) {
+                            io.printStackTrace();
+                        }
+                    } //error toast
+                } //use default name
+            }
+        });
+
+        builder.show();
+
     }
 
     private class ResponseReceiver extends BroadcastReceiver {
@@ -324,6 +428,7 @@ public class MainActivity extends AppCompatActivity {
                 if (l != null) {
                     mLastLatitude = String.valueOf(l.getLatitude());
                     mLastLongitude = String.valueOf(l.getLongitude());
+                    mLastTimestamp = getTime();
                     mLocTextView.setText("Latitude: " + mLastLatitude + "\n"
                                         +"Longitude: " + mLastLongitude);
                 }
@@ -335,6 +440,7 @@ public class MainActivity extends AppCompatActivity {
                 mNmeaParser.feed(raw);
                 mLastLongitude = mNmeaParser.getLongitude();
                 mLastLatitude = mNmeaParser.getLatitude();
+                mLastTimestamp = getTime();
                 mLocTextView.setText(mNmeaParser.toString());
                 // mTextView.setText(raw);
             }
@@ -353,6 +459,14 @@ public class MainActivity extends AppCompatActivity {
                 );
             }*/
         }
+    }
+
+    //helper function for returning current time s.a 2017-10-19 08:22:18
+    private String getTime() {
+
+        final Calendar c = Calendar.getInstance();
+        final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-mm-dd hh-mm-ss", Locale.getDefault());
+        return sdf.format(c.getTime());
     }
 
     private class ConnectThread extends Thread {
