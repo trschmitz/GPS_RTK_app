@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+
+    <item
+        android:id="@+id/action_connect_bluetooth"
+        android:icon="@drawable/ic_bluetooth_connect"
+        android:title="Connect bluetooth." />
+
+    <!-- Add items to populate the menu drawer look at the selectDrawerItem function in MainActivity -->
+
+
+
+
+</menu>

@@ -31,6 +31,7 @@ import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.text.InputType;
 import android.util.Log;
+import android.util.SparseArray;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -42,6 +43,13 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MarkerOptions;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -55,6 +63,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.ToDoubleBiFunction;
 
 import static edu.ksu.wheatgenetics.survey.SurveyConstants.BROADCAST_BT_CONNECTION;
 import static edu.ksu.wheatgenetics.survey.SurveyConstants.BROADCAST_BT_OUTPUT;
@@ -67,7 +76,7 @@ import static edu.ksu.wheatgenetics.survey.SurveyConstants.PERMISSION_REQUEST;
  * Created by chaneylc on 8/30/2017.
  */
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
 
     //db helper variable and prepared statement declarations
     private LocEntryDbHelper mDbHelper;
@@ -82,8 +91,7 @@ public class MainActivity extends AppCompatActivity {
 
     //survey UI variables
     private TextView mLocTextView;
-    private ListView mIdListView;
-    private EditText mIdInputEditText;
+    private ListView mPointListView;
     private DrawerLayout mDrawerLayout;
     private ActionBarDrawerToggle mDrawerToggle;
 
@@ -93,8 +101,17 @@ public class MainActivity extends AppCompatActivity {
     private LocalBroadcastManager mLocalBroadcastManager;
     private ConnectedThread mConnectedThread;
 
+    private GoogleMap mMap;
+    private SparseArray<LatLng> mLocationArray;
+    private SparseArray<String> mIdArray;
+    private LatLng mStartLocation;
+
     //nmea parser
     private NmeaParser mNmeaParser;
+
+    //state of the action bar, 0 is default with add plot button
+    //1 is finish add plot button
+    private int mActionBarState = 0;
 
     @Override
     protected void onPostCreate(Bundle savedInstanceBundle) {
@@ -111,8 +128,13 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu m) {
 
-        final MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.activity_main_toolbar, m);
+        if (mActionBarState == 0) {
+            final MenuInflater inflater = getMenuInflater();
+            inflater.inflate(R.menu.activity_main_toolbar, m);
+        } else {
+            final MenuInflater inflater = getMenuInflater();
+            inflater.inflate(R.menu.activity_plot_toolbar, m);
+        }
         return true;
     }
 
@@ -124,20 +146,38 @@ public class MainActivity extends AppCompatActivity {
         }
 
         switch (item.getItemId()) {
-            case android.R.id.home:
-                mDrawerLayout.openDrawer(GravityCompat.START);
+
+            /* TODO
+            create logic/variables to store locations while in this state
+            I recommend creating an ArrayList and a class 'Point', the add button will add
+            the Point to the list. You should probably add some UI interactions with the ListView
+            to edit its name.
+            also make the list view and add button visible
+            */
+            case R.id.startPlotButton: {
+
+                mActionBarState = 1;
+                invalidateOptionsMenu();
+
                 return true;
-            case R.id.action_connect_bluetooth:
-                mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-                findPairedBTDevice();
+            }
+
+            /*TODO
+            You will need to create a separate array list here for all of your plot locations.
+            Create a 'Plot' class which will have multiple 'Point' classes. Each time this finish button
+            is pressed one new Plot class will be created which is populated by the array list from above.
+            also make the list view and add button invisible
+             */
+            case R.id.finishPlotButton: {
+
+                mActionBarState = 0;
+                invalidateOptionsMenu();
+
                 return true;
-            case R.id.action_map_locations:
-                final Intent mapsActivity = new Intent(this, MapsActivity.class);
-                startActivity(mapsActivity);
-                return true;
-            default:
-                return super.onOptionsItemSelected(item);
+            }
         }
+
+        return false;
     }
 
     private void findPairedBTDevice() {
@@ -216,28 +256,103 @@ public class MainActivity extends AppCompatActivity {
             mSurveyDirectory.mkdirs();
         }
 
-        updateListView();
+        if (mLocationArray == null) {
+            mLocationArray = new SparseArray<>();
+        }
+
+        if (mIdArray == null)
+            mIdArray = new SparseArray<>();
+
+        loadDatabase();
+
+    }
+
+    private synchronized void loadDatabase() {
+
+        mDbHelper = new LocEntryDbHelper(this);
+
+        //TODO something similar to this but retrieve all stored Plot objects
+        /*
+        final SQLiteDatabase db = mDbHelper.getWritableDatabase();
+        final Cursor cursor = db.rawQuery("SELECT latitude, longitude, sample_id FROM " + LocEntryContract.LocEntry.TABLE_NAME, null);
+        if (cursor.moveToFirst()) {
+            do {
+                final String id = cursor.getString(
+                        cursor.getColumnIndexOrThrow(LocEntryContract.LocEntry.COLUMN_NAME_SAMPLE_ID)
+                );
+                final String lat = cursor.getString(
+                        cursor.getColumnIndexOrThrow(LocEntryContract.LocEntry.COLUMN_NAME_LATITUDE)
+                );
+                final String lng = cursor.getString(
+                        cursor.getColumnIndexOrThrow(LocEntryContract.LocEntry.COLUMN_NAME_LONGITUDE)
+                );
+                final LatLng latlng = new LatLng(Double.valueOf(lat), Double.valueOf(lng));
+                mStartLocation = latlng;
+
+                mLocationArray.append(mLocationArray.size(), latlng);
+                mIdArray.append(mIdArray.size(), id);
+
+            } while(cursor.moveToNext());
+        }
+        */
+
+        //after db is finished loading populate the map
+        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.mapFragment);
+        mapFragment.getMapAsync(this);
+    }
+
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+
+        mMap = googleMap;
+
+        mDbHelper = new LocEntryDbHelper(this);
+
+        drawUI();
+
+        setupView();
+    }
+
+    /* TODO
+    Display the id for each Plot you've saved in the centroid of each plot.
+    Display the user location.
+    If in Survey mode, maybe display a line to the closest plot.
+    If in Plot mode display each plotted point.
+     */
+    private void drawUI() {
+
+        if (mMap != null) {
+            mMap.clear();
+
+        }
+    }
+
+    //function to modify camera for initial view
+    private void setupView() {
+        //add test begin point at East Stadium, KSU
+        if (mMap != null) {
+            mMap.moveCamera(
+                    CameraUpdateFactory.newLatLng(new LatLng(39.190439,-96.584222))
+            );
+        }
+    }
+
+    private void drawMarker(LatLng latLng) {
+
+        final double lat = latLng.latitude;
+        final double lng = latLng.longitude;
+        if(mMap != null) {
+            mMap.addMarker(new MarkerOptions()
+                    .position(latLng));
+        }
     }
 
     private void initializeUI() {
 
-        mIdListView = findViewById(R.id.idListView);
+        mPointListView = findViewById(R.id.pointListView);
         mLocTextView = findViewById(R.id.locationTextView);
-        mIdInputEditText = findViewById(R.id.idInputEditText);
-
-        Button mSubmitLocButton = findViewById(R.id.submitInputButton);
-        mSubmitLocButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (!mIdInputEditText.getText().toString().isEmpty()
-                        && mLastLatitude != null
-                        && mLastLongitude != null) {
-                    submitToDb();
-                } else {
-                    Toast.makeText(MainActivity.this, "Entry must have a name and location.", Toast.LENGTH_SHORT).show();
-                }
-            }
-        });
 
         mDrawerLayout = findViewById(R.id.drawer_layout);
 
@@ -290,32 +405,36 @@ public class MainActivity extends AppCompatActivity {
     public void selectDrawerItem(MenuItem menuItem) {
         switch (menuItem.getItemId()) {
 
-            case R.id.maps_activity:
-                final Intent mapsActivity = new Intent(this, MapsActivity.class);
-                startActivity(mapsActivity);
-                break;
-            case R.id.nav_settings:
+           /* case R.id.nav_settings:
                 final Intent settingsIntent = new Intent(this, SettingsActivity.class);
                 startActivityForResult(settingsIntent, SurveyConstants.SETTINGS_INTENT_REQ);
                 break;
             case R.id.action_navbar_export:
                 askUserExportFileName();
+                break;*/
+            case R.id.action_connect_bluetooth:
+                mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+                findPairedBTDevice();
                 break;
         }
 
         mDrawerLayout.closeDrawers();
     }
 
+    /* TODO
+    call this function whenever a new plot is created or a file is imported
+     */
     private synchronized void submitToDb() {
 
         final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         final String userName = prefs.getString(SettingsActivity.PERSON, "Default");
         final String experimentId = prefs.getString(SettingsActivity.EXPERIMENT, "Default");
 
-        if (!experimentId.isEmpty() && !userName.isEmpty() && mLastLatitude != null && mLastLongitude != null
-                && !mIdInputEditText.getText().toString().isEmpty()) {
+        if (!experimentId.isEmpty() && !userName.isEmpty() && mLastLatitude != null && mLastLongitude != null) {
             final SQLiteDatabase db = mDbHelper.getWritableDatabase();
             final ContentValues entry = new ContentValues();
+
+            /* you will have values like this, but not exactly, remember to edit the LocEntryContract file with your DB Schema
             entry.put(LocEntryContract.LocEntry.COLUMN_NAME_SAMPLE_ID, mIdInputEditText.getText().toString());
             entry.put(LocEntryContract.LocEntry.COLUMN_NAME_LATITUDE, mLastLatitude);
             entry.put(LocEntryContract.LocEntry.COLUMN_NAME_LONGITUDE, mLastLongitude);
@@ -324,31 +443,8 @@ public class MainActivity extends AppCompatActivity {
             entry.put(LocEntryContract.LocEntry.COLUMN_NAME_TIMESTAMP, mLastTimestamp);
 
             final long newRowId = db.insert(LocEntryContract.LocEntry.TABLE_NAME, null, entry);
-
-            updateListView();
+            */
         }
-    }
-
-    private synchronized void updateListView() {
-
-        final ArrayAdapter<String> newAdapter = new ArrayAdapter<String>(this, R.layout.row);
-
-        final SQLiteDatabase db = mDbHelper.getReadableDatabase();
-        final String table = LocEntryContract.LocEntry.TABLE_NAME;
-        final String[] columnsToReturn = { "sample_id" };
-        final Cursor cursor = db.query(table, columnsToReturn, null, null, null, null, null, null);
-        if (cursor.moveToFirst()) {
-            do {
-                final String id = cursor.getString(
-                        cursor.getColumnIndexOrThrow(LocEntryContract.LocEntry.COLUMN_NAME_SAMPLE_ID)
-                );
-                newAdapter.add((newAdapter.getCount() + 1)
-                        + "\t\t\t\t" + id);
-            } while(cursor.moveToNext());
-        }
-        cursor.close();
-
-        mIdListView.setAdapter(newAdapter);
     }
 
     private boolean isExternalStorageWritable() {
@@ -417,6 +513,7 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    //Receives GPS updates from a bluetooth device or the phone GPS
     private class ResponseReceiver extends BroadcastReceiver {
 
         @Override
@@ -429,8 +526,7 @@ public class MainActivity extends AppCompatActivity {
                     mLastLatitude = String.valueOf(l.getLatitude());
                     mLastLongitude = String.valueOf(l.getLongitude());
                     mLastTimestamp = getTime();
-                    mLocTextView.setText("Latitude: " + mLastLatitude + "\n"
-                                        +"Longitude: " + mLastLongitude);
+                    mLocTextView.setText("Lat/Lng: " + mLastLatitude + " / " + mLastLongitude);
                 }
             }
 
@@ -465,7 +561,7 @@ public class MainActivity extends AppCompatActivity {
     private String getTime() {
 
         final Calendar c = Calendar.getInstance();
-        final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-mm-dd hh-mm-ss", Locale.getDefault());
+        final SimpleDateFormat sdf = new SimpleDateFormat("YYYY-MM-dd hh-mm-ss", Locale.getDefault());
         return sdf.format(c.getTime());
     }
 

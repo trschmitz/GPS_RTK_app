@@ -65,6 +65,6 @@
         android:layout_gravity="start"
         android:background="@color/colorPrimaryDark"
         app:headerLayout="@layout/nav_header"
-        app:menu="@menu/nav_drawer_view" />
+        app:menu="@menu/activity_plot_toolbar" />
 
 </android.support.v4.widget.DrawerLayout>
