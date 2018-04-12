@@ -36,6 +36,7 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -58,6 +59,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.sql.PreparedStatement;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Locale;
@@ -92,8 +94,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     //survey UI variables
     private TextView mLocTextView;
     private ListView mPointListView;
+    private EditText mIdInputEditText;
+    private Button mSubmitInputButton;
     private DrawerLayout mDrawerLayout;
     private ActionBarDrawerToggle mDrawerToggle;
+
+    //newPlot and newPoints variables for while in-process of creating
+    private ArrayList<Point> newPoints;
+    private Plot newPlot;
 
     //bluetooth device variables
     private BluetoothAdapter mBluetoothAdapter;
@@ -144,7 +152,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (mDrawerToggle.onOptionsItemSelected(item)) {
             return true;
         }
-
+        //ArrayList<Point> newPoints = new ArrayList<Point>();
+        //need a cancel button and a corresponding case
         switch (item.getItemId()) {
 
             /* TODO
@@ -158,6 +167,17 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                 mActionBarState = 1;
                 invalidateOptionsMenu();
+                //ViewGroup.LayoutParams lp = (ViewGroup.LayoutParams)mPointListView.getLayoutParams();
+               // lp.height=300;
+                //mPointListView.setLayoutParams(lp);
+                mPointListView.setVisibility(View.VISIBLE);
+                //show add point button too - where to put...?
+                newPoints = new ArrayList<Point>(); //clear it cause starting new plot
+                mIdInputEditText.setVisibility(View.VISIBLE);
+                mSubmitInputButton.setVisibility(View.VISIBLE);
+                mPointListView.setAdapter(null);
+                //ArrayList<Point> newPlot = new ArrayList<Point>();
+                //newPlot.add(new Point(8, "rtk", mLastLatitude, mLastLongitude, "acc"));
 
                 return true;
             }
@@ -172,12 +192,111 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                 mActionBarState = 0;
                 invalidateOptionsMenu();
+                //ViewGroup.LayoutParams lp = (ViewGroup.LayoutParams)mPointListView.getLayoutParams();
+                //lp.height=0;
+                //mPointListView.setLayoutParams(lp);
+                mIdInputEditText.setVisibility(View.GONE);
+                mSubmitInputButton.setVisibility(View.GONE);
+
+                //String name = getPlotName();
+                if (newPoints.size() < 3) {
+                    AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                    builder.setMessage("Cannot create plot");
+                    builder.show();
+                    //return true;
+                    //don't actually add the plot
+                    mPointListView.setAdapter(null);
+                    mPointListView.setVisibility(View.GONE);
+                    return true;
+                }
+                /*Plot */newPlot = new Plot(8, "newPlot", "trs",getTime());
+                for (Point p: newPoints) {
+                    newPlot.addPoint(p);
+                }
+
+                //TESTING v
+
+                nameText = "";
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setTitle("Enter Plot Name");
+                //set up the input
+                final EditText input = new EditText(this);
+                //Specify type of input expected: text
+                input.setInputType(InputType.TYPE_CLASS_TEXT);
+                builder.setView(input);
+                //set up buttons
+                builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        nameText = input.getText().toString();
+                        newPlot.setName(nameText);//submit newPlot, display it in listView
+                        ArrayAdapter<String> adapter = new ArrayAdapter<String>(MainActivity.this, R.layout.row);
+                        adapter.add(newPlot.toString());
+                        mPointListView.setAdapter(adapter);
+                        // TODO: add to DB
+                    }
+                });
+                builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.cancel(); //don't save the plot -then we don't need a cancel button :)
+                        //also clear everything from listview and hide it and the addpoint elems
+                        //TODO: clear stuff and reset
+                    }
+                });
+                builder.show();
+
+                //TESTING ^
+
+
+                /*
+                //submit newPlot, display it in listView
+                ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, R.layout.row);
+                adapter.add(newPlot.toString());
+                mPointListView.setAdapter(adapter);
+                */
 
                 return true;
             }
         }
 
         return false;
+    }
+
+    String nameText = "";
+    private String getPlotName() {
+        nameText = "";
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Enter Plot Name");
+        //set up the input
+        final EditText input = new EditText(this);
+        //Specify type of input expected: text
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        builder.setView(input);
+        //set up buttons
+        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                nameText = input.getText().toString();
+            }
+        });
+        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.cancel();
+            }
+        });
+        builder.show();
+        return nameText;
+    }
+
+    private void addPtToListView() {
+        newPoints.add(new Point(9, "rtk", mLastLatitude, mLastLongitude, "addPt2LVacc"));
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, R.layout.row);
+        for (Point p:newPoints) {
+            adapter.add(p.toString());
+        }
+        mPointListView.setAdapter(adapter);
     }
 
     private void findPairedBTDevice() {
@@ -353,8 +472,25 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         mPointListView = findViewById(R.id.pointListView);
         mLocTextView = findViewById(R.id.locationTextView);
+        mIdInputEditText = findViewById(R.id.idInputEditText);
+        mSubmitInputButton = findViewById(R.id.submitInputButton);
 
         mDrawerLayout = findViewById(R.id.drawer_layout);
+
+        mSubmitInputButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                /*if (!mIdInputEditText.getText().toString().isEmpty()
+                        && mLastLatitude != null
+                        && mLastLongitude != null) {
+                    //submitToDb();
+                    addPtToListView();
+                } else {
+                    Toast.makeText(MainActivity.this, "Entry must have a name and location.", Toast.LENGTH_SHORT).show();
+                }*/ //TODO: uncomment this
+                addPtToListView();
+            }
+        });
 
         if(getSupportActionBar() != null){
             getSupportActionBar().setTitle(null);
