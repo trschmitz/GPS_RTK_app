@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/Survey.iml" filepath="$PROJECT_DIR$/Survey.iml" />
-      <module fileurl="file://C:\Users\trschmitz\Documents\SrDesign\git\forked\Survey\.idea\SurveyV2.iml" filepath="C:\Users\trschmitz\Documents\SrDesign\git\forked\Survey\.idea\SurveyV2.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
     </modules>
   </component>

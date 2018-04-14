@@ -201,7 +201,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 //String name = getPlotName();
                 if (newPoints.size() < 3) {
                     AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                    builder.setMessage("Cannot create plot");
+                    builder.setMessage("Cannot create plot - need at least 3 points");
                     builder.show();
                     //return true;
                     //don't actually add the plot
@@ -234,6 +234,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         adapter.add(newPlot.toString());
                         mPointListView.setAdapter(adapter);
                         // TODO: add to DB
+                        submitToDb(newPlot); //TODO: check this is only thing need to do
                     }
                 });
                 builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
@@ -557,10 +558,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         mDrawerLayout.closeDrawers();
     }
 
-    /* TODO
+    /* TODO submitToDb
     call this function whenever a new plot is created or a file is imported
      */
-    private synchronized void submitToDb() {
+    private synchronized void submitToDb(Plot plotToSubmit) {
 
         final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         final String userName = prefs.getString(SettingsActivity.PERSON, "Default");
@@ -568,7 +569,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         if (!experimentId.isEmpty() && !userName.isEmpty() && mLastLatitude != null && mLastLongitude != null) {
             final SQLiteDatabase db = mDbHelper.getWritableDatabase();
-            final ContentValues entry = new ContentValues();
+            //final ContentValues entry = new ContentValues();
 
             /* you will have values like this, but not exactly, remember to edit the LocEntryContract file with your DB Schema
             entry.put(LocEntryContract.LocEntry.COLUMN_NAME_SAMPLE_ID, mIdInputEditText.getText().toString());
@@ -580,6 +581,43 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
             final long newRowId = db.insert(LocEntryContract.LocEntry.TABLE_NAME, null, entry);
             */
+            // foreach point in plot, add the points
+            for (Point pointToSubmit : plotToSubmit.getPoints()) {
+                final ContentValues pointEntry = new ContentValues();
+                //rtk, lat, long, accuracy - id will be auto-generated so don't include
+                pointEntry.put(LocEntryContract.LocEntry.PTS_COL_NAME_RTK, pointToSubmit.getRtk());
+                pointEntry.put(LocEntryContract.LocEntry.PTS_COL_NAME_LAT, pointToSubmit.getLatitude());
+                pointEntry.put(LocEntryContract.LocEntry.PTS_COL_NAME_LNG, pointToSubmit.getLongitude());
+                pointEntry.put(LocEntryContract.LocEntry.PTS_COL_NAME_ACCURACY, pointToSubmit.getAccuracy());
+
+                long newPointRowId = db.insert(LocEntryContract.LocEntry.TABLE_NAME, null, pointEntry);
+                // Then change point id's to what db returns
+                if (newPointRowId == -1) {
+                    //error inserting data
+                    AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                    builder.setMessage("Error inserting point row");
+                    builder.show();
+                } else {
+                    pointToSubmit.setID(newPointRowId);
+                }
+            }
+            // if all pts added successfully, add plot
+            final ContentValues plotEntry = new ContentValues();
+            plotEntry.put(LocEntryContract.LocEntry.PLOTS_COL_NAME_NAME, plotToSubmit.getName());
+            plotEntry.put(LocEntryContract.LocEntry.PLOTS_COL_NAME_USER, plotToSubmit.getUser());
+            plotEntry.put(LocEntryContract.LocEntry.PLOTS_COL_NAME_TIMESTAMP, plotToSubmit.getTimestamp());
+            plotEntry.put(LocEntryContract.LocEntry.PLOTS_COL_NAME_CENTROID, plotToSubmit.getCentroid());
+
+            long newPlotRowId = db.insert(LocEntryContract.LocEntry.TABLE_NAME_PLOT, null, plotEntry);
+            // then change plot id to what db returns
+            if (newPlotRowId == -1) {
+                //error inserting data
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setMessage("Error inserting point row");
+                builder.show();
+            } else {
+                plotToSubmit.setID(newPlotRowId);
+            }
         }
     }
 

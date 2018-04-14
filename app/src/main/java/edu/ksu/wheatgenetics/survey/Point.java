@@ -5,14 +5,14 @@ package edu.ksu.wheatgenetics.survey;
  */
 
 public class Point {
-    private int id;
+    private long id;
     private String rtk;
     private String latitude;
     private String longitude;
     private String accuracy;
 
-    public Point(int _id, String _rtk, String lat, String lng, String acc) {
-        id=_id;
+    public Point(/*int _id, */String _rtk, String lat, String lng, String acc) {
+        //id=_id;
         rtk=_rtk;
         latitude=lat;
         longitude=lng;
@@ -29,6 +29,18 @@ public class Point {
     }
     public String getLongitude() {
         return longitude;
+    }
+    public String getRtk() {
+        return rtk;
+    }
+    public String getAccuracy() {
+        return accuracy;
+    }
+    public long getId() {
+        return id;
+    }
+    public void setID(long ID) {
+        id = ID;
     }
 
 }

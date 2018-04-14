@@ -7,15 +7,15 @@ import java.util.ArrayList;
  */
 
 public class Plot {
-    private int id;
+    private long id;
     private String name;
     private String user;
     private String timestamp;
     private String centroid;
     private ArrayList<Point> points = new ArrayList<>();
 
-    public Plot(int _id, String _name, String _user, String _timestamp) {
-        id = _id;
+    public Plot(/*int _id, */String _name, String _user, String _timestamp) {
+        //id = _id;
         name = _name;
         user = _user;
         timestamp = _timestamp;
@@ -27,9 +27,12 @@ public class Plot {
     public ArrayList<Point> getPoints() {
         return points;
     }
+    public void setID(long ID) {
+        id = ID;
+    }
 
     public String toString() {
-        getCentroid();
+        calcCentroid();
         return "Name: " + name +
                 "\nTimestamp: " + timestamp +
                 "\nCentroid: " + centroid;
@@ -39,7 +42,21 @@ public class Plot {
         name = _name;
     }
 
-    private void getCentroid() {
+    public String getCentroid() {
+        calcCentroid();
+        return centroid;
+    }
+    public String getName() {
+        return name;
+    }
+    public String getUser() {
+        return user;
+    }
+    public String getTimestamp() {
+        return timestamp;
+    }
+
+    private void calcCentroid() {
         //only calculates the center of the points, not really the centroid of the shape
         float sumLat = 0;
         float sumLon = 0;
