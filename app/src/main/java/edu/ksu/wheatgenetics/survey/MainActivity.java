@@ -209,7 +209,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     mPointListView.setVisibility(View.GONE);
                     return true;
                 }
-                /*Plot */newPlot = new Plot(8, "newPlot", "trs",getTime());
+                /*Plot */newPlot = new Plot("newPlot", "trs",getTime());
                 for (Point p: newPoints) {
                     newPlot.addPoint(p);
                 }
@@ -292,7 +292,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void addPtToListView() {
-        newPoints.add(new Point(9, "rtk", mLastLatitude, mLastLongitude, "addPt2LVacc"));
+        newPoints.add(new Point("rtk", mLastLatitude, mLastLongitude, "addPt2LVacc"));
         ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, R.layout.row);
         for (Point p:newPoints) {
             adapter.add(p.toString());
@@ -489,7 +489,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 } else {
                     Toast.makeText(MainActivity.this, "Entry must have a name and location.", Toast.LENGTH_SHORT).show();
                 }*/ //TODO: uncomment this
-                addPtToListView();
+                addPtToListView(); //also adds to newPoints array
             }
         });
 
@@ -561,12 +561,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     /* TODO submitToDb
     call this function whenever a new plot is created or a file is imported
      */
-    private synchronized void submitToDb(Plot plotToSubmit) {
+    private synchronized int submitToDb(Plot plotToSubmit) {
 
         final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         final String userName = prefs.getString(SettingsActivity.PERSON, "Default");
         final String experimentId = prefs.getString(SettingsActivity.EXPERIMENT, "Default");
 
+        //TODO: do I need all of these checks here? or any?
         if (!experimentId.isEmpty() && !userName.isEmpty() && mLastLatitude != null && mLastLongitude != null) {
             final SQLiteDatabase db = mDbHelper.getWritableDatabase();
             //final ContentValues entry = new ContentValues();
@@ -581,44 +582,61 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
             final long newRowId = db.insert(LocEntryContract.LocEntry.TABLE_NAME, null, entry);
             */
-            // foreach point in plot, add the points
-            for (Point pointToSubmit : plotToSubmit.getPoints()) {
-                final ContentValues pointEntry = new ContentValues();
-                //rtk, lat, long, accuracy - id will be auto-generated so don't include
-                pointEntry.put(LocEntryContract.LocEntry.PTS_COL_NAME_RTK, pointToSubmit.getRtk());
-                pointEntry.put(LocEntryContract.LocEntry.PTS_COL_NAME_LAT, pointToSubmit.getLatitude());
-                pointEntry.put(LocEntryContract.LocEntry.PTS_COL_NAME_LNG, pointToSubmit.getLongitude());
-                pointEntry.put(LocEntryContract.LocEntry.PTS_COL_NAME_ACCURACY, pointToSubmit.getAccuracy());
+            db.beginTransaction();
+            try {
+                // foreach point in plot, add the points
+                ArrayList<Long> pointRowIDs = new ArrayList<Long>();
 
-                long newPointRowId = db.insert(LocEntryContract.LocEntry.TABLE_NAME, null, pointEntry);
-                // Then change point id's to what db returns
-                if (newPointRowId == -1) {
-                    //error inserting data
-                    AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                    builder.setMessage("Error inserting point row");
-                    builder.show();
-                } else {
-                    pointToSubmit.setID(newPointRowId);
+                for (Point pointToSubmit : plotToSubmit.getPoints()) {
+                    final ContentValues pointEntry = new ContentValues();
+                    //rtk, lat, long, accuracy - id will be auto-generated so don't include
+                    pointEntry.put(LocEntryContract.LocEntry.POINTS_COL_RTK, pointToSubmit.getRtk());
+                    pointEntry.put(LocEntryContract.LocEntry.POINTS_COL_LAT, pointToSubmit.getLatitude());
+                    pointEntry.put(LocEntryContract.LocEntry.POINTS_COL_LNG, pointToSubmit.getLongitude());
+                    pointEntry.put(LocEntryContract.LocEntry.POINTS_COL_ACCURACY, pointToSubmit.getAccuracy());
+
+                    long newPointRowId = db.insertOrThrow(LocEntryContract.LocEntry.TABLE_NAME_POINTS, null, pointEntry);
+                    //save ID to update the Points after all DB writes successful
+                    pointRowIDs.add(newPointRowId);
                 }
-            }
-            // if all pts added successfully, add plot
-            final ContentValues plotEntry = new ContentValues();
-            plotEntry.put(LocEntryContract.LocEntry.PLOTS_COL_NAME_NAME, plotToSubmit.getName());
-            plotEntry.put(LocEntryContract.LocEntry.PLOTS_COL_NAME_USER, plotToSubmit.getUser());
-            plotEntry.put(LocEntryContract.LocEntry.PLOTS_COL_NAME_TIMESTAMP, plotToSubmit.getTimestamp());
-            plotEntry.put(LocEntryContract.LocEntry.PLOTS_COL_NAME_CENTROID, plotToSubmit.getCentroid());
+                // if all pts added successfully, add plot
+                final ContentValues plotEntry = new ContentValues();
+                plotEntry.put(LocEntryContract.LocEntry.PLOTS_COL_NAME, plotToSubmit.getName());
+                plotEntry.put(LocEntryContract.LocEntry.PLOTS_COL_USER, plotToSubmit.getUser());
+                plotEntry.put(LocEntryContract.LocEntry.PLOTS_COL_TIMESTAMP, plotToSubmit.getTimestamp());
+                plotEntry.put(LocEntryContract.LocEntry.PLOTS_COL_CENTROID, plotToSubmit.getCentroid());
 
-            long newPlotRowId = db.insert(LocEntryContract.LocEntry.TABLE_NAME_PLOT, null, plotEntry);
-            // then change plot id to what db returns
-            if (newPlotRowId == -1) {
-                //error inserting data
-                AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                builder.setMessage("Error inserting point row");
-                builder.show();
-            } else {
+                long newPlotRowId = db.insertOrThrow(LocEntryContract.LocEntry.TABLE_NAME_PLOTS, null, plotEntry);
+
+                //after plot, add the rows to the PLOT_POINT relation table
+                for(int i = 0; i<pointRowIDs.size(); i++) {
+                    final ContentValues plotPointEntry = new ContentValues();
+                    plotPointEntry.put(LocEntryContract.LocEntry.PLOT_POINT_COL_PLOT_ID, newPlotRowId);
+                    plotPointEntry.put(LocEntryContract.LocEntry.PLOT_POINT_COL_POINT_ID, pointRowIDs.get(i));
+
+                    db.insertOrThrow(LocEntryContract.LocEntry.TABLE_NAME_PLOT_POINT, null, plotPointEntry);
+                }
+                //if here, must've all been successful
+                db.setTransactionSuccessful();
+                //update all the plot/point IDs
                 plotToSubmit.setID(newPlotRowId);
+                int i = 0;
+                for (Point p: plotToSubmit.getPoints()) {
+                    p.setID(pointRowIDs.get(i));
+                    i++;
+                }
+                return 1;
+            } catch (Exception e) {
+                //was an error
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setMessage("Error inserting data in database");
+                builder.show();
+                return -1;
+            } finally {
+                db.endTransaction();
             }
         }
+        return -1; //didn't make it inside the ifs to do the inserts
     }
 
     private boolean isExternalStorageWritable() {
@@ -646,7 +664,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             final File output = new File(mSurveyDirectory, value + ".csv");
                             final FileOutputStream fstream = new FileOutputStream(output);
                             final SQLiteDatabase db = mDbHelper.getReadableDatabase();
-                            final String table = LocEntryContract.LocEntry.TABLE_NAME;
+                            //final String table = LocEntryContract.LocEntry.TABLE_NAME;
+                            final String table = LocEntryContract.LocEntry.TABLE_NAME_POINTS; //TODO: review this method, previously the above line was used
                             //final Cursor cursor = db.rawQuery("SElECT * FROM SURVEY", null);
                             final Cursor cursor = db.query(table, null, null, null, null, null, null);
                             //first write header line
