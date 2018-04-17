@@ -102,6 +102,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     //newPlot and newPoints variables for while in-process of creating
     private ArrayList<Point> newPoints;
     private Plot newPlot;
+    //global var that holds all plots that are in db,
+    //including new ones that were added
+    private ArrayList<Plot> allPlots = new ArrayList<>();
 
     //bluetooth device variables
     private BluetoothAdapter mBluetoothAdapter;
@@ -209,7 +212,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     mPointListView.setVisibility(View.GONE);
                     return true;
                 }
-                /*Plot */newPlot = new Plot("newPlot", "trs",getTime());
+                /*Plot */newPlot = new Plot("newPlot", "trs", mLastTimestamp);
                 for (Point p: newPoints) {
                     newPlot.addPoint(p);
                 }
@@ -234,7 +237,24 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         adapter.add(newPlot.toString());
                         mPointListView.setAdapter(adapter);
                         // TODO: add to DB
-                        submitToDb(newPlot); //TODO: check this is only thing need to do
+                        submitToDb(newPlot);
+                        allPlotsToListView(); //if submitToDb threw an error, it will have notified the user from there
+                        //either way, our action here is still to display all successfully saved Plots
+                        
+                        /*int result = submitToDb(newPlot);
+                        if (result == 1) { //TODO: check this is only thing need to do
+                            allPlotsToListView(); //newPlot should be added to allPlots in submitToDb() function
+                        } else if (result == -1) {
+                            ArrayAdapter<String> test1 = new ArrayAdapter<>(MainActivity.this, R.layout.row);
+                            test1.add("didn't make it into the if");
+                            mPointListView.setAdapter(test1);
+                        } else { //unsuccessful, clear listViews and stuff, return to base state
+                            //opt: display fail message (the method should display its own though)
+                            //clear listView and let go of newPts and newPlot vars
+                            ArrayAdapter<String> test = new ArrayAdapter<>(MainActivity.this, R.layout.row);
+                            test.add("testing else branch");
+                            mPointListView.setAdapter(test);
+                        }*/
                     }
                 });
                 builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
@@ -262,6 +282,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
 
         return false;
+    }
+
+    private void allPlotsToListView() {
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, R.layout.row);
+        for (Plot p: allPlots) {
+            adapter.add(p.toString());
+        }
+        mPointListView.setAdapter(adapter);
     }
 
     String nameText = "";
@@ -568,7 +596,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         final String experimentId = prefs.getString(SettingsActivity.EXPERIMENT, "Default");
 
         //TODO: do I need all of these checks here? or any?
-        if (!experimentId.isEmpty() && !userName.isEmpty() && mLastLatitude != null && mLastLongitude != null) {
+        if (!experimentId.isEmpty() && !userName.isEmpty() /*&& mLastLatitude != null && mLastLongitude != null*/) {
             final SQLiteDatabase db = mDbHelper.getWritableDatabase();
             //final ContentValues entry = new ContentValues();
 
@@ -585,7 +613,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             db.beginTransaction();
             try {
                 // foreach point in plot, add the points
-                ArrayList<Long> pointRowIDs = new ArrayList<Long>();
+                ArrayList<Long> pointRowIDs = new ArrayList<>();
 
                 for (Point pointToSubmit : plotToSubmit.getPoints()) {
                     final ContentValues pointEntry = new ContentValues();
@@ -625,18 +653,20 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     p.setID(pointRowIDs.get(i));
                     i++;
                 }
+                allPlots.add(plotToSubmit);
                 return 1;
+                //return 1;
             } catch (Exception e) {
                 //was an error
                 AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                builder.setMessage("Error inserting data in database");
+                builder.setMessage("Error inserting data in database " + e.getMessage());
                 builder.show();
                 return -1;
             } finally {
                 db.endTransaction();
             }
         }
-        return -1; //didn't make it inside the ifs to do the inserts
+        return -2; //didn't make it inside the ifs to do the inserts
     }
 
     private boolean isExternalStorageWritable() {

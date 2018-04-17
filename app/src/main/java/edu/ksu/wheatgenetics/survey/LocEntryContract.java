@@ -51,21 +51,21 @@ final class LocEntryContract {
                     LocEntry.COLUMN_NAME_LONGITUDE + " TEXT," +
                     LocEntry.COLUMN_NAME_PERSON + " TEXT," +
                     LocEntry.COLUMN_NAME_TIMESTAMP + " TEXT);";*/
-    static final String SQL_CREATE_ENTRIES =
+    static final String SQL_CREATE_PLOTS =
             "CREATE TABLE " + LocEntry.TABLE_NAME_PLOTS + " (" +
                     LocEntry.PLOTS_COL_PLOT_ID + " INTEGER PRIMARY KEY," +
                     LocEntry.PLOTS_COL_NAME + " TEXT UNIQUE," +
                     LocEntry.PLOTS_COL_USER + " TEXT," +
                     LocEntry.PLOTS_COL_TIMESTAMP + " TEXT," +
-                    LocEntry.PLOTS_COL_CENTROID + " TEXT );" +
-
+                    LocEntry.PLOTS_COL_CENTROID + " TEXT );" ;
+    static final String SQL_CREATE_POINTS =
             "CREATE TABLE " + LocEntry.TABLE_NAME_POINTS + " (" +
                     LocEntry.POINTS_COL_POINT_ID + " INTEGER PRIMARY KEY," +
                     LocEntry.POINTS_COL_RTK + " TEXT," +
                     LocEntry.POINTS_COL_LAT + " TEXT," +
                     LocEntry.POINTS_COL_LNG + " TEXT," +
-                    LocEntry.POINTS_COL_ACCURACY + " TEXT );" +
-
+                    LocEntry.POINTS_COL_ACCURACY + " TEXT );" ;
+    static final String SQL_CREATE_PLOT_POINT =
             "CREATE TABLE " + LocEntry.TABLE_NAME_PLOT_POINT + " (" +
                     LocEntry.PLOT_POINT_COL_PLOT_ID + " INTEGER," +
                     LocEntry.PLOT_POINT_COL_POINT_ID + " INTEGER," +
@@ -78,8 +78,10 @@ final class LocEntryContract {
                         "REFERENCES " + LocEntry.TABLE_NAME_POINTS + "(" +
                         LocEntry.POINTS_COL_POINT_ID + ")  );";
 
-    static final String SQL_DELETE_ENTRIES =
-            "DROP TABLE IF EXISTS " + LocEntry.TABLE_NAME_PLOTS + ";" +
-            "DROP TABLE IF EXISTS " + LocEntry.TABLE_NAME_POINTS + ";" +
+    static final String SQL_DELETE_PLOT_POINT =
+            "DROP TABLE IF EXISTS " + LocEntry.TABLE_NAME_PLOTS + ";" ;
+    static final String SQL_DELETE_POINTS =
+            "DROP TABLE IF EXISTS " + LocEntry.TABLE_NAME_POINTS + ";" ;
+    static final String SQL_DELETE_PLOTS =
             "DROP TABLE IF EXISTS " + LocEntry.TABLE_NAME_PLOT_POINT + ";";
 }
