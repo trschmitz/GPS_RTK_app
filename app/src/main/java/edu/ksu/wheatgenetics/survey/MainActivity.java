@@ -258,8 +258,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private void allPlotsToListView() {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, R.layout.row);
-        for (Plot p: allPlots) {
-            adapter.add(p.toString());
+        for (int i = allPlots.size()-1; i>=0; i--) {
+            adapter.add(allPlots.get(i).toString());
         }
         mPointListView.setAdapter(adapter);
     }
@@ -392,6 +392,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         mDbHelper = new LocEntryDbHelper(this);
 
         //TODO something similar to this but retrieve all stored Plot objects
+
+        final SQLiteDatabase db = mDbHelper.getReadableDatabase();
         /*
         final SQLiteDatabase db = mDbHelper.getWritableDatabase();
         final Cursor cursor = db.rawQuery("SELECT latitude, longitude, sample_id FROM " + LocEntryContract.LocEntry.TABLE_NAME, null);
