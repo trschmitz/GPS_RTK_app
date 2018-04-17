@@ -217,8 +217,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     newPlot.addPoint(p);
                 }
 
-                //TESTING v
-
                 nameText = "";
                 AlertDialog.Builder builder = new AlertDialog.Builder(this);
                 builder.setTitle("Enter Plot Name");
@@ -232,29 +230,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         nameText = input.getText().toString();
-                        newPlot.setName(nameText);//submit newPlot, display it in listView
+                        newPlot.setName(nameText);
                         ArrayAdapter<String> adapter = new ArrayAdapter<String>(MainActivity.this, R.layout.row);
                         adapter.add(newPlot.toString());
                         mPointListView.setAdapter(adapter);
-                        // TODO: add to DB
                         submitToDb(newPlot);
                         allPlotsToListView(); //if submitToDb threw an error, it will have notified the user from there
                         //either way, our action here is still to display all successfully saved Plots
-                        
-                        /*int result = submitToDb(newPlot);
-                        if (result == 1) { //TODO: check this is only thing need to do
-                            allPlotsToListView(); //newPlot should be added to allPlots in submitToDb() function
-                        } else if (result == -1) {
-                            ArrayAdapter<String> test1 = new ArrayAdapter<>(MainActivity.this, R.layout.row);
-                            test1.add("didn't make it into the if");
-                            mPointListView.setAdapter(test1);
-                        } else { //unsuccessful, clear listViews and stuff, return to base state
-                            //opt: display fail message (the method should display its own though)
-                            //clear listView and let go of newPts and newPlot vars
-                            ArrayAdapter<String> test = new ArrayAdapter<>(MainActivity.this, R.layout.row);
-                            test.add("testing else branch");
-                            mPointListView.setAdapter(test);
-                        }*/
                     }
                 });
                 builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
@@ -266,16 +248,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     }
                 });
                 builder.show();
-
-                //TESTING ^
-
-
-                /*
-                //submit newPlot, display it in listView
-                ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, R.layout.row);
-                adapter.add(newPlot.toString());
-                mPointListView.setAdapter(adapter);
-                */
 
                 return true;
             }
@@ -655,11 +627,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 }
                 allPlots.add(plotToSubmit);
                 return 1;
-                //return 1;
             } catch (Exception e) {
                 //was an error
                 AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                builder.setMessage("Error inserting data in database " + e.getMessage());
+                builder.setMessage("Error inserting data in database "/* + e.getMessage()*/);
                 builder.show();
                 return -1;
             } finally {
