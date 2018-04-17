@@ -94,7 +94,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     //survey UI variables
     private TextView mLocTextView;
     private ListView mPointListView;
-    private EditText mIdInputEditText;
+    //private EditText mIdInputEditText;
     private Button mSubmitInputButton;
     private DrawerLayout mDrawerLayout;
     private ActionBarDrawerToggle mDrawerToggle;
@@ -105,6 +105,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     //global var that holds all plots that are in db,
     //including new ones that were added
     private ArrayList<Plot> allPlots = new ArrayList<>();
+    private String newPlotNameText;
 
     //bluetooth device variables
     private BluetoothAdapter mBluetoothAdapter;
@@ -173,14 +174,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 //ViewGroup.LayoutParams lp = (ViewGroup.LayoutParams)mPointListView.getLayoutParams();
                // lp.height=300;
                 //mPointListView.setLayoutParams(lp);
-                mPointListView.setVisibility(View.VISIBLE);
+                //mPointListView.setVisibility(View.VISIBLE);
                 //show add point button too - where to put...?
-                newPoints = new ArrayList<Point>(); //clear it cause starting new plot
-                mIdInputEditText.setVisibility(View.VISIBLE);
+                newPoints = new ArrayList<>(); //clear it cause starting new plot
+                //mIdInputEditText.setVisibility(View.VISIBLE);
                 mSubmitInputButton.setVisibility(View.VISIBLE);
                 mPointListView.setAdapter(null);
-                //ArrayList<Point> newPlot = new ArrayList<Point>();
-                //newPlot.add(new Point(8, "rtk", mLastLatitude, mLastLongitude, "acc"));
 
                 return true;
             }
@@ -198,26 +197,25 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 //ViewGroup.LayoutParams lp = (ViewGroup.LayoutParams)mPointListView.getLayoutParams();
                 //lp.height=0;
                 //mPointListView.setLayoutParams(lp);
-                mIdInputEditText.setVisibility(View.GONE);
+                //mIdInputEditText.setVisibility(View.GONE);
                 mSubmitInputButton.setVisibility(View.GONE);
 
-                //String name = getPlotName();
                 if (newPoints.size() < 3) {
                     AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                    builder.setMessage("Cannot create plot - need at least 3 points");
+                    builder.setMessage("Cannot create plot - must have at least 3 points");
                     builder.show();
-                    //return true;
                     //don't actually add the plot
-                    mPointListView.setAdapter(null);
-                    mPointListView.setVisibility(View.GONE);
+                    //mPointListView.setAdapter(null);
+                    //mPointListView.setVisibility(View.GONE);
+                    allPlotsToListView();
                     return true;
                 }
-                /*Plot */newPlot = new Plot("newPlot", "trs", mLastTimestamp);
+                newPlot = new Plot("newPlot", "trs", mLastTimestamp);
                 for (Point p: newPoints) {
                     newPlot.addPoint(p);
                 }
 
-                nameText = "";
+                newPlotNameText = "";
                 AlertDialog.Builder builder = new AlertDialog.Builder(this);
                 builder.setTitle("Enter Plot Name");
                 //set up the input
@@ -229,22 +227,29 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        nameText = input.getText().toString();
-                        newPlot.setName(nameText);
-                        ArrayAdapter<String> adapter = new ArrayAdapter<String>(MainActivity.this, R.layout.row);
-                        adapter.add(newPlot.toString());
-                        mPointListView.setAdapter(adapter);
-                        submitToDb(newPlot);
-                        allPlotsToListView(); //if submitToDb threw an error, it will have notified the user from there
-                        //either way, our action here is still to display all successfully saved Plots
+                        if (!input.getText().toString().isEmpty()) { //a name has been entered
+                            newPlotNameText = input.getText().toString();
+                            newPlot.setName(newPlotNameText);
+                            ArrayAdapter<String> adapter = new ArrayAdapter<String>(MainActivity.this, R.layout.row);
+                            adapter.add(newPlot.toString());
+                            mPointListView.setAdapter(adapter);
+                            submitToDb(newPlot);
+                            //either way, our action here is still to display all successfully saved Plots
+                        } else { //empty text, no name was entered
+                            Toast.makeText(MainActivity.this, "Plot not created, no name was entered", Toast.LENGTH_SHORT).show();
+                        }
+                        //if submitToDb threw an error, it will have notified the user from there so we still display all SAVED plots
+                        //also, if they didn't enter a name, we still want to display all saved plots
+                        allPlotsToListView();
                     }
                 });
                 builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        dialog.cancel(); //don't save the plot -then we don't need a cancel button :)
+                        dialog.cancel(); //don't save the plot -then we don't need a cancel button :) (at least not for now)
                         //also clear everything from listview and hide it and the addpoint elems
-                        //TODO: clear stuff and reset
+                        //replace listview with successfully saved plots
+                        allPlotsToListView();
                     }
                 });
                 builder.show();
@@ -262,33 +267,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             adapter.add(allPlots.get(i).toString());
         }
         mPointListView.setAdapter(adapter);
-    }
-
-    String nameText = "";
-    private String getPlotName() {
-        nameText = "";
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Enter Plot Name");
-        //set up the input
-        final EditText input = new EditText(this);
-        //Specify type of input expected: text
-        input.setInputType(InputType.TYPE_CLASS_TEXT);
-        builder.setView(input);
-        //set up buttons
-        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                nameText = input.getText().toString();
-            }
-        });
-        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.cancel();
-            }
-        });
-        builder.show();
-        return nameText;
     }
 
     private void addPtToListView() {
@@ -384,6 +362,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             mIdArray = new SparseArray<>();
 
         loadDatabase();
+        //allPlotsToListView();
 
     }
 
@@ -482,6 +461,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             allPlots.add(dbPlots.get(i));
         }*/
         allPlots.addAll(dbPlots);
+        allPlotsToListView();
 
         /*
         final SQLiteDatabase db = mDbHelper.getWritableDatabase();
@@ -564,7 +544,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         mPointListView = findViewById(R.id.pointListView);
         mLocTextView = findViewById(R.id.locationTextView);
-        mIdInputEditText = findViewById(R.id.idInputEditText);
+        //mIdInputEditText = findViewById(R.id.idInputEditText);
         mSubmitInputButton = findViewById(R.id.submitInputButton);
 
         mDrawerLayout = findViewById(R.id.drawer_layout);
@@ -649,16 +629,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         mDrawerLayout.closeDrawers();
     }
 
-    /* TODO submitToDb
-    call this function whenever a new plot is created or a file is imported
-     */
     private synchronized int submitToDb(Plot plotToSubmit) {
 
         final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         final String userName = prefs.getString(SettingsActivity.PERSON, "Default");
         final String experimentId = prefs.getString(SettingsActivity.EXPERIMENT, "Default");
 
-        //TODO: do I need all of these checks here? or any?
         if (!experimentId.isEmpty() && !userName.isEmpty() /*&& mLastLatitude != null && mLastLongitude != null*/) {
             final SQLiteDatabase db = mDbHelper.getWritableDatabase();
             //final ContentValues entry = new ContentValues();
