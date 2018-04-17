@@ -394,6 +394,95 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         //TODO something similar to this but retrieve all stored Plot objects
 
         final SQLiteDatabase db = mDbHelper.getReadableDatabase();
+        final Cursor cursor = db.rawQuery("SELECT " +
+                LocEntryContract.LocEntry.PLOTS_COL_PLOT_ID + "," +
+                LocEntryContract.LocEntry.PLOTS_COL_NAME + ", " +
+                LocEntryContract.LocEntry.PLOTS_COL_USER + ", " +
+                LocEntryContract.LocEntry.PLOTS_COL_TIMESTAMP + " FROM " +
+                LocEntryContract.LocEntry.TABLE_NAME_PLOTS, null);
+        ArrayList<Plot> dbPlots = new ArrayList<>();
+        if (cursor.moveToFirst()) {
+            do {
+                final String plot_id = cursor.getString(
+                        cursor.getColumnIndexOrThrow(LocEntryContract.LocEntry.PLOTS_COL_PLOT_ID)
+                );
+                final String name = cursor.getString(
+                        cursor.getColumnIndexOrThrow(LocEntryContract.LocEntry.PLOTS_COL_NAME)
+                );
+                final String user = cursor.getString(
+                        cursor.getColumnIndexOrThrow(LocEntryContract.LocEntry.PLOTS_COL_USER)
+                );
+                final String timestamp = cursor.getString(
+                        cursor.getColumnIndexOrThrow(LocEntryContract.LocEntry.PLOTS_COL_TIMESTAMP)
+                );
+                Plot nextPlot = new Plot(name,user,timestamp);
+                nextPlot.setID(Long.parseLong(plot_id));
+                dbPlots.add(nextPlot);
+                //android.util.Log.v("CursorPlot", nextPlot.toString());
+
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+
+        for (int i = 0; i<dbPlots.size(); i++ ) {
+            Plot curPlot = dbPlots.get(i);
+
+            final Cursor pointCursor = db.rawQuery("SELECT " +
+                    LocEntryContract.LocEntry.POINTS_COL_POINT_ID + "," +
+                    LocEntryContract.LocEntry.POINTS_COL_RTK + "," +
+                    LocEntryContract.LocEntry.POINTS_COL_LAT + "," +
+                    LocEntryContract.LocEntry.POINTS_COL_LNG + "," +
+                    LocEntryContract.LocEntry.POINTS_COL_ACCURACY + " from " +
+                            LocEntryContract.LocEntry.TABLE_NAME_POINTS + " where " +
+                            LocEntryContract.LocEntry.POINTS_COL_POINT_ID + " in " +
+                    "(select " + LocEntryContract.LocEntry.PLOT_POINT_COL_POINT_ID +
+                    " from " + LocEntryContract.LocEntry.TABLE_NAME_PLOT_POINT +
+                    " where " + LocEntryContract.LocEntry.PLOT_POINT_COL_PLOT_ID +
+                    " = " + curPlot.getID() + ");" , null );
+
+                    /*
+                    "(" + LocEntryContract.LocEntry.TABLE_NAME_POINTS + " left outer join " +
+                    LocEntryContract.LocEntry.TABLE_NAME_PLOT_POINT + " on " +
+                    LocEntryContract.LocEntry.TABLE_NAME_PLOT_POINT + "." +
+                    LocEntryContract.LocEntry.PLOT_POINT_COL_POINT_ID + "=" +
+                    LocEntryContract.LocEntry.TABLE_NAME_POINTS + "." +
+                    LocEntryContract.LocEntry.POINTS_COL_POINT_ID + ") " +
+                    "where " + LocEntryContract.LocEntry.PLOT_POINT_COL_PLOT_ID +
+                    "=" + Long.parseLong(plot_id), null);
+                    */
+            if (pointCursor.moveToFirst()) {
+                do {
+                    final String point_id = pointCursor.getString(
+                            pointCursor.getColumnIndexOrThrow(LocEntryContract.LocEntry.POINTS_COL_POINT_ID)
+                    );
+                    final String rtk = pointCursor.getString(
+                            pointCursor.getColumnIndexOrThrow(LocEntryContract.LocEntry.POINTS_COL_RTK)
+                    );
+                    final String latitude = pointCursor.getString(
+                            pointCursor.getColumnIndexOrThrow(LocEntryContract.LocEntry.POINTS_COL_LAT)
+                    );
+                    final String longitude = pointCursor.getString(
+                            pointCursor.getColumnIndexOrThrow(LocEntryContract.LocEntry.POINTS_COL_LNG)
+                    );
+                    final String accuracy = pointCursor.getString(
+                            pointCursor.getColumnIndexOrThrow(LocEntryContract.LocEntry.POINTS_COL_ACCURACY)
+                    );
+                    Point nextPoint = new Point(rtk,latitude,longitude,accuracy);
+                    nextPoint.setID(Long.parseLong(point_id));
+                    //android.util.Log.v("CursorPt", nextPoint.toString());
+                    curPlot.addPoint(nextPoint);
+
+                } while (pointCursor.moveToNext());
+            }
+            pointCursor.close();
+
+        }
+        //add dbPlots to allPlots
+        /*for (int i = 0; i<dbPlots.size(); i++ ) {
+            allPlots.add(dbPlots.get(i));
+        }*/
+        allPlots.addAll(dbPlots);
+
         /*
         final SQLiteDatabase db = mDbHelper.getWritableDatabase();
         final Cursor cursor = db.rawQuery("SELECT latitude, longitude, sample_id FROM " + LocEntryContract.LocEntry.TABLE_NAME, null);

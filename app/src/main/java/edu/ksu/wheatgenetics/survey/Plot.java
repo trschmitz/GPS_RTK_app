@@ -11,7 +11,7 @@ public class Plot {
     private String name;
     private String user;
     private String timestamp;
-    private String centroid;
+    private String centroid = null;
     private ArrayList<Point> points = new ArrayList<>();
 
     public Plot(/*int _id, */String _name, String _user, String _timestamp) {
@@ -30,12 +30,15 @@ public class Plot {
     public void setID(long ID) {
         id = ID;
     }
+    public long getID() { return id; }
 
     public String toString() {
-        calcCentroid();
-        return "Name: " + name +
+        if (centroid == null) calcCentroid();
+        return "ID: " + id +
+                "\nName: " + name +
+                "\nUser: " + user +
                 "\nTimestamp: " + timestamp +
-                "\nCentroid: " + centroid;
+                "\nCentroid " + centroid;
     }
 
     public void setName(String _name) {
@@ -43,7 +46,7 @@ public class Plot {
     }
 
     public String getCentroid() {
-        calcCentroid();
+        if (centroid == null) calcCentroid();
         return centroid;
     }
     public String getName() {
@@ -61,14 +64,14 @@ public class Plot {
         float sumLat = 0;
         float sumLon = 0;
         for (Point p: points) {
-            if (p.getLatitude() != null && p.getLatitude() != null) {
-                sumLat+= Float.parseFloat(p.getLatitude());
-                sumLon+= Float.parseFloat(p.getLongitude());
+            if (p.getLatitude() != null && p.getLongitude() != null && !p.getLatitude().equals("null") && !p.getLatitude().equals("null")) {
+                sumLat += Float.parseFloat(p.getLatitude());
+                sumLon += Float.parseFloat(p.getLongitude());
             }
         }
-        float centroidLat = sumLat / points.size();
-        float centroidLng = sumLon / points.size();
-        if (centroidLat != 0 && centroidLng != 0) {
+        float centroidLat = sumLat / (float)points.size();
+        float centroidLng = sumLon / (float)points.size();
+        if (centroidLat != 0 && centroidLng != 0 && !Float.isNaN(centroidLat) && !Float.isNaN(centroidLng)) {
             centroid = "Lat/Long: " + centroidLat + "/" + centroidLng;
         } else {
             centroid = "unable to calculate";
