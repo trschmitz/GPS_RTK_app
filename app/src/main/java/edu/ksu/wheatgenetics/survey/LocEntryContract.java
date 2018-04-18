@@ -73,10 +73,10 @@ final class LocEntryContract {
                                      LocEntry.PLOT_POINT_COL_POINT_ID + ")," +
                     "FOREIGN KEY(" + LocEntry.PLOT_POINT_COL_PLOT_ID + ") " +
                         "REFERENCES " + LocEntry.TABLE_NAME_PLOTS + "(" +
-                        LocEntry.PLOTS_COL_PLOT_ID + ")," +
+                        LocEntry.PLOTS_COL_PLOT_ID + ") ON DELETE CASCADE," +
                     "FOREIGN KEY(" + LocEntry.PLOT_POINT_COL_POINT_ID + ") " +
                         "REFERENCES " + LocEntry.TABLE_NAME_POINTS + "(" +
-                        LocEntry.POINTS_COL_POINT_ID + ")  );";
+                        LocEntry.POINTS_COL_POINT_ID + ") ON DELETE CASCADE  );";
 
     static final String SQL_DELETE_PLOT_POINT =
             "DROP TABLE IF EXISTS " + LocEntry.TABLE_NAME_PLOTS + ";" ;

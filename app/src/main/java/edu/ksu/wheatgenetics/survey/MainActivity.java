@@ -30,6 +30,7 @@ import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.text.InputType;
+import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.util.SparseArray;
 import android.view.Menu;
@@ -38,9 +39,11 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -230,8 +233,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         if (!input.getText().toString().isEmpty()) { //a name has been entered
                             newPlotNameText = input.getText().toString();
                             newPlot.setName(newPlotNameText);
-                            ArrayAdapter<String> adapter = new ArrayAdapter<String>(MainActivity.this, R.layout.row);
-                            adapter.add(newPlot.toString());
+                            ArrayAdapter<Plot> adapter = new ArrayAdapter<>(MainActivity.this, R.layout.row);
+                            adapter.add(newPlot);
                             mPointListView.setAdapter(adapter);
                             submitToDb(newPlot);
                             //either way, our action here is still to display all successfully saved Plots
@@ -252,6 +255,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         allPlotsToListView();
                     }
                 });
+                builder.setOnCancelListener(new DialogInterface.OnCancelListener() {
+                    @Override
+                    public void onCancel(DialogInterface dialog) {
+                        dialog.cancel();
+                        allPlotsToListView();
+                    }
+                });
                 builder.show();
 
                 return true;
@@ -262,18 +272,18 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void allPlotsToListView() {
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, R.layout.row);
+        ArrayAdapter<Plot> adapter = new ArrayAdapter<>(this, R.layout.row);
         for (int i = allPlots.size()-1; i>=0; i--) {
-            adapter.add(allPlots.get(i).toString());
+            adapter.add(allPlots.get(i));
         }
         mPointListView.setAdapter(adapter);
     }
 
     private void addPtToListView() {
         newPoints.add(new Point("rtk", mLastLatitude, mLastLongitude, "addPt2LVacc"));
-        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, R.layout.row);
+        ArrayAdapter<Point> adapter = new ArrayAdapter<>(this, R.layout.row);
         for (Point p:newPoints) {
-            adapter.add(p.toString());
+            adapter.add(p);
         }
         mPointListView.setAdapter(adapter);
     }
@@ -549,6 +559,95 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         mDrawerLayout = findViewById(R.id.drawer_layout);
 
+        mPointListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                if (mActionBarState == 1) return; //TODO: later, make this so they can remove a point?
+
+                final Plot plot = (Plot) parent.getAdapter().getItem(position);
+                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                builder.setTitle(plot.getName());
+                String message = "Plot info:" +
+                        "\n" + plot.toString();
+                for (int i = 0; i<plot.getPoints().size(); i++) {
+                    message += "\n\nPoint " + (i+1) + ":\n" + plot.getPoints().get(i).toString();
+                }
+
+                LinearLayout layout = new LinearLayout(MainActivity.this);
+                layout.setOrientation(LinearLayout.VERTICAL);
+
+                final EditText input = new EditText(MainActivity.this);
+                //Specify type of input expected: text
+                input.setInputType(InputType.TYPE_CLASS_TEXT);
+                input.setHint("new Plot name");
+
+                final TextView text = new TextView(MainActivity.this);
+                text.setText(message);
+                text.setMovementMethod(new ScrollingMovementMethod());
+
+                layout.addView(input);
+                layout.addView(text);
+                builder.setView(layout);
+
+                builder.setNeutralButton("Rename", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        //rename
+                        if (!input.getText().toString().isEmpty()) { //a name has been entered
+                            String renameText = input.getText().toString();
+                            String oldName = plot.getName();
+                            plot.setName(renameText);
+                            if (!renameInDb(plot, renameText)) {
+                                //unsuccessful, revert name and display toast
+                                plot.setName(oldName);
+                                Toast.makeText(MainActivity.this, "Error: could not rename plot", Toast.LENGTH_SHORT).show();
+                            }
+                            allPlotsToListView();
+                        } else { //empty text, no name was entered
+                            Toast.makeText(MainActivity.this, "Plot not renamed, no name was entered", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
+                builder.setNegativeButton("Delete plot", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        //delete
+
+                        DialogInterface.OnClickListener myDialogClickListener = new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                switch(which) {
+                                    case DialogInterface.BUTTON_POSITIVE:
+                                        //call delete from DB
+                                        //TODO: delete from DB
+                                        if (!deleteFromDB(plot)) {
+                                            //not successful
+                                            Toast.makeText(MainActivity.this, "Deletion not successful", Toast.LENGTH_LONG).show();
+                                        } else {
+                                            Toast.makeText(MainActivity.this, "Successfully deleted",Toast.LENGTH_SHORT).show();
+                                        }
+                                        allPlotsToListView();
+                                        break;
+                                    /*case DialogInterface.BUTTON_NEGATIVE:
+                                        //do nothing?
+                                        Toast.makeText(MainActivity.this, "No clicked", Toast.LENGTH_SHORT).show();
+                                        break;*/
+                                }
+                            }
+                        };
+
+                        AlertDialog.Builder areYouSure = new AlertDialog.Builder(MainActivity.this);
+                        areYouSure.setMessage("Are you sure you want to delete this plot?");
+                        areYouSure.setPositiveButton("Yes", myDialogClickListener);
+                        areYouSure.setNegativeButton("No", myDialogClickListener);
+                        areYouSure.show();
+                    }
+                });
+                builder.setPositiveButton("Ok", null); //close?
+                builder.show();
+            }
+        });
+
         mSubmitInputButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -559,7 +658,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     addPtToListView();
                 } else {
                     Toast.makeText(MainActivity.this, "Entry must have a name and location.", Toast.LENGTH_SHORT).show();
-                }*/ //TODO: uncomment this
+                }*/ //TODO: uncomment this - left out for debugging purposes
                 addPtToListView(); //also adds to newPoints array
             }
         });
@@ -629,6 +728,57 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         mDrawerLayout.closeDrawers();
     }
 
+    private synchronized boolean deleteFromDB(Plot plotToDelete) {
+        final SQLiteDatabase db = mDbHelper.getWritableDatabase();
+        db.beginTransaction();
+        try {
+            //delete from PLOTS and POINTS, PLOT_POINT should cascade delete
+            int plotsDeleted = db.delete(LocEntryContract.LocEntry.TABLE_NAME_PLOTS,
+                    LocEntryContract.LocEntry.PLOTS_COL_PLOT_ID + "=" + plotToDelete.getID(), null);
+            int pointsDeleted = 0;
+            for (Point p: plotToDelete.getPoints()) {
+                pointsDeleted += db.delete(LocEntryContract.LocEntry.TABLE_NAME_POINTS,
+                        LocEntryContract.LocEntry.POINTS_COL_POINT_ID + "=" + p.getId(), null);
+            }
+            if (plotsDeleted != 1 || pointsDeleted != plotToDelete.getPoints().size()) {
+                return false;
+            }
+            //otherwise, all was successful
+            allPlots.remove(plotToDelete);
+            db.setTransactionSuccessful();
+            return true;
+        } catch (Exception e) {
+            return false;
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    private synchronized boolean renameInDb(Plot plotToRename, String newName) {
+        final SQLiteDatabase db = mDbHelper.getWritableDatabase();
+        db.beginTransaction();
+        try {
+            ContentValues entry = new ContentValues();
+            entry.put(LocEntryContract.LocEntry.PLOTS_COL_NAME, newName);
+            int affected = db.update(LocEntryContract.LocEntry.TABLE_NAME_PLOTS, entry,
+                    LocEntryContract.LocEntry.PLOTS_COL_PLOT_ID + "=" +
+            plotToRename.getID(), null);
+
+            if (affected < 1) {
+                return false;
+            } else if (affected > 1) {
+                Toast.makeText(this, "Update error: " + affected + " rows updated", Toast.LENGTH_LONG).show();
+                return false;
+            }
+
+            db.setTransactionSuccessful();
+            return true;
+        } catch (Exception e) {
+            return false;
+        } finally {
+            db.endTransaction();
+        }
+    }
     private synchronized int submitToDb(Plot plotToSubmit) {
 
         final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
