@@ -619,7 +619,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                 switch(which) {
                                     case DialogInterface.BUTTON_POSITIVE:
                                         //call delete from DB
-                                        //TODO: delete from DB
                                         if (!deleteFromDB(plot)) {
                                             //not successful
                                             Toast.makeText(MainActivity.this, "Deletion not successful", Toast.LENGTH_LONG).show();
@@ -735,12 +734,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             //delete from PLOTS and POINTS, PLOT_POINT should cascade delete
             int plotsDeleted = db.delete(LocEntryContract.LocEntry.TABLE_NAME_PLOTS,
                     LocEntryContract.LocEntry.PLOTS_COL_PLOT_ID + "=" + plotToDelete.getID(), null);
+            int plot_ptsDeleted = db.delete(LocEntryContract.LocEntry.TABLE_NAME_PLOT_POINT,
+                    LocEntryContract.LocEntry.PLOT_POINT_COL_PLOT_ID + "=" + plotToDelete.getID(), null);
             int pointsDeleted = 0;
             for (Point p: plotToDelete.getPoints()) {
                 pointsDeleted += db.delete(LocEntryContract.LocEntry.TABLE_NAME_POINTS,
                         LocEntryContract.LocEntry.POINTS_COL_POINT_ID + "=" + p.getId(), null);
             }
-            if (plotsDeleted != 1 || pointsDeleted != plotToDelete.getPoints().size()) {
+            if (plotsDeleted != 1 || pointsDeleted != plotToDelete.getPoints().size() || plot_ptsDeleted != plotToDelete.getPoints().size()) {
                 return false;
             }
             //otherwise, all was successful
