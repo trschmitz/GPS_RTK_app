@@ -53,6 +53,7 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import java.io.File;
@@ -109,6 +110,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     //including new ones that were added
     private ArrayList<Plot> allPlots = new ArrayList<>();
     private String newPlotNameText;
+    private Marker mCurLocationMarker;
 
     //bluetooth device variables
     private BluetoothAdapter mBluetoothAdapter;
@@ -269,6 +271,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
 
         return false;
+    }
+
+    private void allPlotsMarkMap() {
+        for (Plot p: allPlots ) {
+            p.markMap(mMap);
+        }
     }
 
     private void allPlotsToListView() {
@@ -467,9 +475,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         }
         //add dbPlots to allPlots
-        /*for (int i = 0; i<dbPlots.size(); i++ ) {
-            allPlots.add(dbPlots.get(i));
-        }*/
         allPlots.addAll(dbPlots);
         allPlotsToListView();
 
@@ -506,8 +511,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
-
+        android.util.Log.v("onMapReady", "is being called");
         mMap = googleMap;
+
+        mMap.getUiSettings().setZoomControlsEnabled(true);
 
         mDbHelper = new LocEntryDbHelper(this);
 
@@ -526,7 +533,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         if (mMap != null) {
             mMap.clear();
-
+            allPlotsMarkMap();
         }
     }
 
@@ -536,6 +543,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (mMap != null) {
             mMap.moveCamera(
                     CameraUpdateFactory.newLatLng(new LatLng(39.190439,-96.584222))
+            );
+            mCurLocationMarker = mMap.addMarker(new MarkerOptions()
+                .position(new LatLng(39.190439, -96.584222))
             );
         }
     }
@@ -742,13 +752,19 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         LocEntryContract.LocEntry.POINTS_COL_POINT_ID + "=" + p.getId(), null);
             }
             if (plotsDeleted != 1 || pointsDeleted != plotToDelete.getPoints().size() || plot_ptsDeleted != plotToDelete.getPoints().size()) {
+                Toast.makeText(this, "wrong num rows deleted. plots: " + plot_ptsDeleted + ", pts: " + pointsDeleted + ", plot_point: " + plot_ptsDeleted, Toast.LENGTH_LONG).show();
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setMessage("wrong num rows deleted");
+                builder.show();
                 return false;
             }
             //otherwise, all was successful
             allPlots.remove(plotToDelete);
+            plotToDelete.unMarkMap(mMap);
             db.setTransactionSuccessful();
             return true;
         } catch (Exception e) {
+            Toast.makeText(this,"error: " + e.getMessage(),Toast.LENGTH_LONG).show();
             return false;
         } finally {
             db.endTransaction();
@@ -844,6 +860,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     i++;
                 }
                 allPlots.add(plotToSubmit);
+                plotToSubmit.calcCentroid();
+                plotToSubmit.markMap(mMap);
+
                 return 1;
             } catch (Exception e) {
                 //was an error
@@ -939,6 +958,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     mLastLongitude = String.valueOf(l.getLongitude());
                     mLastTimestamp = getTime();
                     mLocTextView.setText("Lat/Lng: " + mLastLatitude + " / " + mLastLongitude);
+
+                    mCurLocationMarker.setPosition(new LatLng(Double.parseDouble(mLastLatitude), Double.parseDouble(mLastLongitude)));
                 }
             }
 

@@ -30,6 +30,7 @@
         <activity
             android:name=".MainActivity"
             android:label="@string/title_activity_maps"
+            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustPan">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

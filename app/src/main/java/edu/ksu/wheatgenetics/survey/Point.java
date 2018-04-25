@@ -21,9 +21,9 @@ public class Point {
 
     public String toString() {
         return "ID: " + id +
-                "\nRTK: " + rtk +
-                "\nLat/Lng: " + latitude + "/" + longitude +
-                "\nAcc: " + accuracy;
+                //"\nRTK: " + rtk +
+                "\nLat/Lng: " + latitude + "/" + longitude ;//+
+                //"\nAcc: " + accuracy;
     }
 
     public String getLatitude() {
