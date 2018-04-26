@@ -1,9 +1,14 @@
 package edu.ksu.wheatgenetics.survey;
 
+import android.graphics.Color;
+
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polygon;
+import com.google.android.gms.maps.model.PolygonOptions;
 
 import java.util.ArrayList;
 
@@ -20,9 +25,9 @@ public class Plot {
     private LatLng llCentroid = null;
     private ArrayList<Point> points = new ArrayList<>();
     private Marker centroidMarker;
+    private Polygon outlinePoly;
 
-    public Plot(/*int _id, */String _name, String _user, String _timestamp) {
-        //id = _id;
+    Plot(String _name, String _user, String _timestamp) {
         name = _name;
         user = _user;
         timestamp = _timestamp;
@@ -63,10 +68,6 @@ public class Plot {
         if (centroid == null) calcCentroid();
         return centroid;
     }
-    public LatLng getLLCentroid() {
-        if (llCentroid == null) calcCentroid();
-        return llCentroid;
-    }
     public String getName() {
         return name;
     }
@@ -104,18 +105,28 @@ public class Plot {
             if (llCentroid != null) {
                 centroidMarker = mMap.addMarker(new MarkerOptions()
                         .position(llCentroid)
-                        .title(name));
+                        .title(name)
+                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)));
                 centroidMarker.setPosition(llCentroid);
 
             }
-            //TODO: loop thru points and make a polygon
+            PolygonOptions polyOptions = new PolygonOptions();
+            for (Point p: points) {
+                if (p.getLatitude() == null || p.getLatitude().equals("null")) continue;
+                polyOptions.add(new LatLng(Double.parseDouble(p.getLatitude()),Double.parseDouble(p.getLongitude())));
+            }
+            polyOptions.strokeColor(Color.BLUE);
+            if (polyOptions.getPoints().size() > 0) {
+                outlinePoly = mMap.addPolygon(polyOptions);
+            }
         }
     }
-    public void unMarkMap(GoogleMap mMap) {
+    public void unMarkMap() {
         if (centroidMarker != null) {
             centroidMarker.remove();
-            android.util.Log.v("unmarkMap", "marker removed");
-            //TODO: remove polygon outline
+        }
+        if (outlinePoly != null) {
+            outlinePoly.remove();
         }
     }
 }

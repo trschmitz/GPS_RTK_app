@@ -546,6 +546,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             );
             mCurLocationMarker = mMap.addMarker(new MarkerOptions()
                 .position(new LatLng(39.190439, -96.584222))
+                .zIndex(10.0f)
             );
         }
     }
@@ -760,7 +761,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
             //otherwise, all was successful
             allPlots.remove(plotToDelete);
-            plotToDelete.unMarkMap(mMap);
+            plotToDelete.unMarkMap();
             db.setTransactionSuccessful();
             return true;
         } catch (Exception e) {
@@ -867,7 +868,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             } catch (Exception e) {
                 //was an error
                 AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                builder.setMessage("Error inserting data in database "/* + e.getMessage()*/);
+                builder.setMessage("Error inserting data in database " + e.getMessage());
                 builder.show();
                 return -1;
             } finally {

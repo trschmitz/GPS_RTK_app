@@ -11,8 +11,7 @@ public class Point {
     private String longitude;
     private String accuracy;
 
-    public Point(/*int _id, */String _rtk, String lat, String lng, String acc) {
-        //id=_id;
+    Point(String _rtk, String lat, String lng, String acc) {
         rtk=_rtk;
         latitude=lat;
         longitude=lng;
