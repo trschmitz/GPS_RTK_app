@@ -54,6 +54,9 @@ public class Plot {
 
     public void setName(String _name) {
         name = _name;
+        if (centroidMarker != null) {
+            centroidMarker.setTitle(name);
+        }
     }
 
     public String getCentroid() {
