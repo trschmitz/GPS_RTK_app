@@ -46,14 +46,14 @@ public class Plot {
 
     public String toString() {
         if (centroid == null) calcCentroid();
-        String result =  "ID: " + id +
-                "\nName: " + name +
-                "\nUser: " + user +
+        String result =  //"ID: " + id +
+                "Name: " + name +
+                //"\nUser: " + user +
                 "\nTimestamp: " + timestamp +
                 "\nCentroid " + centroid;
-        if (llCentroid != null ) {
+        /*if (llCentroid != null ) {
             result += "\nLLCentroid: " + llCentroid.toString();
-        }
+        }*/
         return result;
     }
 
@@ -91,7 +91,7 @@ public class Plot {
         float centroidLat = sumLat / (float)points.size();
         float centroidLng = sumLon / (float)points.size();
         if (centroidLat != 0 && centroidLng != 0 && !Float.isNaN(centroidLat) && !Float.isNaN(centroidLng)) {
-            centroid = "Lat/Long: " + centroidLat + "/" + centroidLng;
+            centroid = "Lat/Lng: " + centroidLat + "/" + centroidLng;
             llCentroid = new LatLng(centroidLat, centroidLng);
         } else {
             centroid = "unable to calculate";

@@ -176,11 +176,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                 mActionBarState = 1;
                 invalidateOptionsMenu();
-                //ViewGroup.LayoutParams lp = (ViewGroup.LayoutParams)mPointListView.getLayoutParams();
-               // lp.height=300;
-                //mPointListView.setLayoutParams(lp);
-                //mPointListView.setVisibility(View.VISIBLE);
-                //show add point button too - where to put...?
                 newPoints = new ArrayList<>(); //clear it cause starting new plot
                 //mIdInputEditText.setVisibility(View.VISIBLE);
                 mSubmitInputButton.setVisibility(View.VISIBLE);
@@ -387,8 +382,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private synchronized void loadDatabase() {
 
         mDbHelper = new LocEntryDbHelper(this);
-
-        //TODO something similar to this but retrieve all stored Plot objects
 
         final SQLiteDatabase db = mDbHelper.getReadableDatabase();
         final Cursor cursor = db.rawQuery("SELECT " +
@@ -661,15 +654,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         mSubmitInputButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                /*if (!mIdInputEditText.getText().toString().isEmpty()
-                        && mLastLatitude != null
-                        && mLastLongitude != null) {
-                    //submitToDb();
+                if (mLastLatitude != null && mLastLongitude != null) {
                     addPtToListView();
                 } else {
                     Toast.makeText(MainActivity.this, "Entry must have a name and location.", Toast.LENGTH_SHORT).show();
-                }*/ //TODO: uncomment this - left out for debugging purposes
-                addPtToListView(); //also adds to newPoints array
+                } //TODO: uncomment this - left out for debugging purposes
+                //addPtToListView(); //also adds to newPoints array
             }
         });
 
